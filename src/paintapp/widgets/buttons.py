@@ -145,8 +145,13 @@ class LineWidthButton(RadioButton):
         self.width_name = width_name or "Normal"
         self.width_value = width_value or 2
 
-        # Set the button text to the width name
-        self.text = self.width_name
+        # Set the button text to show line thickness using simple characters
+        width_symbols = {
+            "Thin": "-",     # Simple dash (thin)
+            "Normal": "=",   # Equals sign (medium)
+            "Thick": "#",    # Hash symbol (thick)
+        }
+        self.text = width_symbols.get(self.width_name, self.width_name)
 
     def get_width(self):
         """
@@ -176,4 +181,66 @@ class LineWidthButton(RadioButton):
         """
         self.width_name = width_name
         self.width_value = width_value
-        self.text = width_name
+        
+        # Update button text with appropriate symbol
+        width_symbols = {
+            "Thin": "-",     # Simple dash (thin)
+            "Normal": "=",   # Equals sign (medium)
+            "Thick": "#",    # Hash symbol (thick)
+        }
+        self.text = width_symbols.get(width_name, width_name)
+
+
+class DrawingModeButton(RadioButton):
+    """
+    A specialized radio button for drawing mode selection.
+
+    This button represents different drawing modes (line, circle, triangle, rectangle).
+    """
+
+    def __init__(self, mode=None, **kwargs):
+        """
+        Initialize the drawing mode button.
+
+        Args:
+            mode (str): Drawing mode (e.g., "line", "circle", "triangle", "rectangle")
+            **kwargs: Additional keyword arguments for the parent class
+        """
+        super().__init__(**kwargs)
+        self.drawing_mode = mode or "line"
+
+        # Set the button text using simple, reliable characters
+        mode_labels = {
+            "line": "/",  # Simple slash for line
+            "straight_line": "|",  # Vertical bar for straight line
+            "circle": "O",  # Letter O for circle
+            "triangle": "^",  # Caret for triangle
+            "rectangle": "[]",  # Square brackets for rectangle
+        }
+        self.text = mode_labels.get(self.drawing_mode, self.drawing_mode.title())
+
+    def get_mode(self):
+        """
+        Get the drawing mode associated with this button.
+
+        Returns:
+            str: Drawing mode
+        """
+        return self.drawing_mode
+
+    def set_mode(self, mode):
+        """
+        Set the drawing mode.
+
+        Args:
+            mode (str): Drawing mode
+        """
+        self.drawing_mode = mode
+        mode_labels = {
+            "line": "/",  # Simple slash for line
+            "straight_line": "|",  # Vertical bar for straight line
+            "circle": "O",  # Letter O for circle
+            "triangle": "^",  # Caret for triangle
+            "rectangle": "[]",  # Square brackets for rectangle
+        }
+        self.text = mode_labels.get(mode, mode.title())

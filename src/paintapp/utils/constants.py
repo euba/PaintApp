@@ -60,3 +60,30 @@ class LineWidths:
     def get_available_widths(cls):
         """Get list of available width names."""
         return list(cls.get_width_map().keys())
+
+
+class DrawingModes:
+    """Drawing mode constants."""
+
+    # Drawing modes
+    LINE = "line"
+    STRAIGHT_LINE = "straight_line"
+    CIRCLE = "circle"
+    TRIANGLE = "triangle"
+    RECTANGLE = "rectangle"
+
+    @classmethod
+    def get_modes(cls):
+        """Get all available drawing modes."""
+        return [cls.LINE, cls.STRAIGHT_LINE, cls.CIRCLE, cls.TRIANGLE, cls.RECTANGLE]
+
+    @classmethod
+    def get_mode_labels(cls):
+        """Get human-readable labels for drawing modes."""
+        return {
+            cls.LINE: "Line",
+            cls.STRAIGHT_LINE: "Straight Line",
+            cls.CIRCLE: "Circle", 
+            cls.TRIANGLE: "Triangle",
+            cls.RECTANGLE: "Rectangle",
+        }

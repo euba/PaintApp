@@ -216,5 +216,111 @@ def test_canvas_drawing_scaling():
     # Check that line width was scaled
     assert abs(canvas.drawing_history[0]['width'] - 6.0) < 0.1  # 4 * 1.5 (average of 2.0 and 2.0)
 
+
+def test_drawing_modes():
+    """Test that drawing modes can be set and retrieved."""
+    from paintapp.core.canvas import MyCanvas
+    from paintapp.utils.constants import DrawingModes
+    
+    canvas = MyCanvas()
+    
+    # Test default mode
+    assert canvas.get_drawing_mode() == DrawingModes.LINE
+    
+    # Test setting different modes
+    canvas.set_drawing_mode(DrawingModes.STRAIGHT_LINE)
+    assert canvas.get_drawing_mode() == DrawingModes.STRAIGHT_LINE
+    
+    canvas.set_drawing_mode(DrawingModes.CIRCLE)
+    assert canvas.get_drawing_mode() == DrawingModes.CIRCLE
+    
+    canvas.set_drawing_mode(DrawingModes.TRIANGLE)
+    assert canvas.get_drawing_mode() == DrawingModes.TRIANGLE
+    
+    canvas.set_drawing_mode(DrawingModes.RECTANGLE)
+    assert canvas.get_drawing_mode() == DrawingModes.RECTANGLE
+    
+    # Test invalid mode (should not change)
+    canvas.set_drawing_mode("invalid_mode")
+    assert canvas.get_drawing_mode() == DrawingModes.RECTANGLE
+
+
+def test_drawing_mode_button():
+    """Test DrawingModeButton functionality."""
+    from paintapp.widgets.buttons import DrawingModeButton
+    from paintapp.utils.constants import DrawingModes
+    
+    # Test line mode button
+    line_btn = DrawingModeButton(mode=DrawingModes.LINE)
+    assert line_btn.get_mode() == DrawingModes.LINE
+    assert line_btn.text == "/"
+    
+    # Test straight line mode button
+    straight_line_btn = DrawingModeButton(mode=DrawingModes.STRAIGHT_LINE)
+    assert straight_line_btn.get_mode() == DrawingModes.STRAIGHT_LINE
+    assert straight_line_btn.text == "|"
+    
+    # Test circle mode button
+    circle_btn = DrawingModeButton(mode=DrawingModes.CIRCLE)
+    assert circle_btn.get_mode() == DrawingModes.CIRCLE
+    assert circle_btn.text == "O"
+    
+    # Test triangle mode button
+    triangle_btn = DrawingModeButton(mode=DrawingModes.TRIANGLE)
+    assert triangle_btn.get_mode() == DrawingModes.TRIANGLE
+    assert triangle_btn.text == "^"
+    
+    # Test rectangle mode button
+    rect_btn = DrawingModeButton(mode=DrawingModes.RECTANGLE)
+    assert rect_btn.get_mode() == DrawingModes.RECTANGLE
+    assert rect_btn.text == "[]"
+
+
+def test_drawing_mode_constants():
+    """Test that drawing mode constants are properly defined."""
+    from paintapp.utils.constants import DrawingModes
+    
+    # Test that all modes exist
+    assert hasattr(DrawingModes, 'LINE')
+    assert hasattr(DrawingModes, 'STRAIGHT_LINE')
+    assert hasattr(DrawingModes, 'CIRCLE')
+    assert hasattr(DrawingModes, 'TRIANGLE')
+    assert hasattr(DrawingModes, 'RECTANGLE')
+    
+    # Test get_modes method
+    modes = DrawingModes.get_modes()
+    assert isinstance(modes, list)
+    assert len(modes) == 5
+    assert DrawingModes.LINE in modes
+    assert DrawingModes.STRAIGHT_LINE in modes
+    assert DrawingModes.CIRCLE in modes
+    assert DrawingModes.TRIANGLE in modes
+    assert DrawingModes.RECTANGLE in modes
+    
+    # Test get_mode_labels method
+    labels = DrawingModes.get_mode_labels()
+    assert isinstance(labels, dict)
+    assert len(labels) == 5
+
+
+def test_line_width_button_symbols():
+    """Test that line width buttons show correct Unicode symbols."""
+    from paintapp.widgets.buttons import LineWidthButton
+    
+    # Test thin line button
+    thin_btn = LineWidthButton(width_name="Thin", width_value=2)
+    assert thin_btn.get_width_name() == "Thin"
+    assert thin_btn.text == "-"  # Simple dash (thin)
+    
+    # Test normal line button
+    normal_btn = LineWidthButton(width_name="Normal", width_value=4)
+    assert normal_btn.get_width_name() == "Normal"
+    assert normal_btn.text == "="  # Equals sign (medium)
+    
+    # Test thick line button
+    thick_btn = LineWidthButton(width_name="Thick", width_value=8)
+    assert thick_btn.get_width_name() == "Thick"
+    assert thick_btn.text == "#"  # Hash symbol (thick)
+
 if __name__ == '__main__':
     pytest.main([__file__]) 

@@ -9,8 +9,8 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 
-from .buttons import ColorButton, LineWidthButton
-from ..utils.constants import Colors, LineWidths
+from .buttons import ColorButton, LineWidthButton, DrawingModeButton
+from ..utils.constants import Colors, LineWidths, DrawingModes
 
 
 class Toolbar(BoxLayout):
@@ -41,6 +41,9 @@ class Toolbar(BoxLayout):
 
     def _setup_toolbar(self):
         """Set up the toolbar with all controls."""
+        # Drawing mode section (new)
+        self._add_drawing_mode_section()
+
         # Color selection section
         self._add_color_section()
 
@@ -50,12 +53,61 @@ class Toolbar(BoxLayout):
         # Action buttons section
         self._add_action_buttons()
 
+    def _add_drawing_mode_section(self):
+        """Add drawing mode selection buttons to the toolbar."""
+        # Drawing mode section container
+        mode_section = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.25,  # Take up 25% of horizontal space
+            spacing=3
+        )
+
+        # Drawing mode label
+        mode_label = Label(
+            text="Tools:",
+            size_hint_x=0.25,  # 25% of the mode section
+            text_size=(None, None),
+            halign="center",
+            valign="middle"
+        )
+        mode_section.add_widget(mode_label)
+
+        # Drawing mode buttons container
+        modes_container = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.75,  # 75% of the mode section
+            spacing=2
+        )
+
+        # Drawing mode buttons
+        modes = DrawingModes.get_modes()
+        self.mode_buttons = []
+
+        for i, mode in enumerate(modes):
+            mode_btn = DrawingModeButton(
+                mode=mode,
+                group="drawing_modes",
+                size_hint_x=1.0 / len(modes),  # Equal distribution
+                size_hint_y=1.0
+            )
+            mode_btn.bind(on_press=self._on_mode_selected)
+
+            # Set "line" as default
+            if mode == "line":
+                mode_btn.state = "down"
+
+            self.mode_buttons.append(mode_btn)
+            modes_container.add_widget(mode_btn)
+
+        mode_section.add_widget(modes_container)
+        self.add_widget(mode_section)
+
     def _add_color_section(self):
         """Add color selection buttons to the toolbar."""
         # Color section container
         color_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.5,  # Take up 50% of horizontal space
+            size_hint_x=0.35,  # Reduced from 50% to 35% to make room for drawing modes
             spacing=3
         )
 
@@ -109,7 +161,7 @@ class Toolbar(BoxLayout):
         # Line width section container
         width_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.35,  # Take up 35% of horizontal space
+            size_hint_x=0.25,  # Reduced from 35% to 25% to make room for drawing modes
             spacing=3
         )
 
@@ -195,6 +247,17 @@ class Toolbar(BoxLayout):
         if self.canvas_widget and hasattr(self.canvas_widget, "set_line_width"):
             width_name = button.get_width_name()
             self.canvas_widget.set_line_width(width_name)
+
+    def _on_mode_selected(self, button):
+        """
+        Handle drawing mode selection.
+
+        Args:
+            button (DrawingModeButton): The selected mode button
+        """
+        if self.canvas_widget and hasattr(self.canvas_widget, "set_drawing_mode"):
+            mode = button.get_mode()
+            self.canvas_widget.set_drawing_mode(mode)
 
     def _on_clear_pressed(self, button):
         """

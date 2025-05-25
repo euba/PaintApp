@@ -5,9 +5,11 @@ Contains the main drawing canvas with touch handling and drawing operations.
 """
 
 from kivy.uix.widget import Widget
-from kivy.graphics import Line, Color
+from kivy.graphics import Line, Color, Ellipse, Triangle
+from kivy.graphics.vertex_instructions import Rectangle as GraphicsRectangle
+import math
 
-from ..utils.constants import LineWidths
+from ..utils.constants import LineWidths, DrawingModes
 from .config import AppConfig
 
 
@@ -26,6 +28,7 @@ class MyCanvas(Widget):
         # Drawing state
         self.line_width = AppConfig.get_default_line_width()
         self.current_color = AppConfig.get_default_color()
+        self.drawing_mode = DrawingModes.LINE  # Default to line drawing
 
         # Drawing history for potential undo functionality
         self.drawing_history = []
@@ -78,30 +81,91 @@ class MyCanvas(Widget):
         # Clear the canvas
         self.canvas.clear()
         
-        # Redraw all lines with scaled coordinates
+        # Redraw all drawings with scaled coordinates
         for entry in self.drawing_history:
-            if entry["type"] in ["line_start", "line_complete"] and "points" in entry:
-                # Scale the points
-                scaled_points = []
-                points = entry["points"]
-                for i in range(0, len(points), 2):
-                    if i + 1 < len(points):
-                        x, y = points[i], points[i + 1]
-                        scaled_x = x * scale_x
-                        scaled_y = y * scale_y
-                        scaled_points.extend([scaled_x, scaled_y])
+            with self.canvas:
+                Color(*entry["color"])
+                scaled_width = entry["width"] * ((scale_x + scale_y) / 2)
+                entry["width"] = scaled_width
                 
-                # Update the stored points
-                entry["points"] = scaled_points
-                
-                # Redraw the line with scaled coordinates
-                with self.canvas:
-                    Color(*entry["color"])
-                    # Scale line width proportionally (use average of scale factors)
-                    scaled_width = entry["width"] * ((scale_x + scale_y) / 2)
+                if entry["type"] in ["line_start", "line_complete"] and "points" in entry:
+                    # Scale line points
+                    scaled_points = []
+                    points = entry["points"]
+                    for i in range(0, len(points), 2):
+                        if i + 1 < len(points):
+                            x, y = points[i], points[i + 1]
+                            scaled_x = x * scale_x
+                            scaled_y = y * scale_y
+                            scaled_points.extend([scaled_x, scaled_y])
+                    
+                    entry["points"] = scaled_points
                     new_line = Line(points=scaled_points, width=scaled_width)
                     entry["line"] = new_line
-                    entry["width"] = scaled_width
+                    
+                elif entry["type"] == "shape_complete":
+                    # Scale shape coordinates
+                    mode = entry["drawing_mode"]
+                    start_x, start_y = entry["start_pos"]
+                    end_x, end_y = entry["end_pos"]
+                    
+                    # Scale positions
+                    scaled_start = (start_x * scale_x, start_y * scale_y)
+                    scaled_end = (end_x * scale_x, end_y * scale_y)
+                    entry["start_pos"] = scaled_start
+                    entry["end_pos"] = scaled_end
+                    
+                    if mode == DrawingModes.CIRCLE:
+                        radius = entry["radius"] * ((scale_x + scale_y) / 2)
+                        entry["radius"] = radius
+                        
+                        # Recreate circle points with scaled radius and center
+                        if radius > 0:
+                            circle_points = []
+                            num_segments = 64
+                            for i in range(num_segments + 1):
+                                angle = 2 * math.pi * i / num_segments
+                                x = scaled_start[0] + radius * math.cos(angle)
+                                y = scaled_start[1] + radius * math.sin(angle)
+                                circle_points.extend([x, y])
+                            
+                            entry["circle_points"] = circle_points
+                            new_shape = Line(points=circle_points, width=scaled_width)
+                        else:
+                            new_shape = Line(points=[scaled_start[0], scaled_start[1], scaled_start[0], scaled_start[1]], width=scaled_width)
+                        
+                    elif mode == DrawingModes.RECTANGLE:
+                        min_x, min_y, width, height = entry["rect_bounds"]
+                        scaled_bounds = (
+                            min_x * scale_x,
+                            min_y * scale_y,
+                            width * scale_x,
+                            height * scale_y
+                        )
+                        entry["rect_bounds"] = scaled_bounds
+                        new_shape = Line(rectangle=scaled_bounds, width=scaled_width)
+                        
+                    elif mode == DrawingModes.TRIANGLE:
+                        points = entry["points"]
+                        scaled_points = []
+                        for i in range(0, len(points), 2):
+                            if i + 1 < len(points):
+                                x, y = points[i], points[i + 1]
+                                scaled_points.extend([x * scale_x, y * scale_y])
+                        entry["points"] = scaled_points
+                        new_shape = Line(points=scaled_points, width=scaled_width)
+                        
+                    elif mode == DrawingModes.STRAIGHT_LINE:
+                        points = entry["points"]
+                        scaled_points = []
+                        for i in range(0, len(points), 2):
+                            if i + 1 < len(points):
+                                x, y = points[i], points[i + 1]
+                                scaled_points.extend([x * scale_x, y * scale_y])
+                        entry["points"] = scaled_points
+                        new_shape = Line(points=scaled_points, width=scaled_width)
+                    
+                    entry["shape"] = new_shape
 
     def on_touch_down(self, touch):
         """
@@ -126,27 +190,36 @@ class MyCanvas(Widget):
         if self.last_canvas_size is None:
             self.last_canvas_size = self.size
 
-        # Start a new line at the touch position
-        with self.canvas:
-            # Set the current color for this line
-            Color(*self.current_color)
+        # Store the starting position for shape drawing
+        touch.ud["start_pos"] = (touch.x, touch.y)
 
-            # Create a new line starting at the touch position
-            line = Line(points=[touch.x, touch.y], width=self.line_width)
+        if self.drawing_mode == DrawingModes.LINE:
+            # Start a new line at the touch position
+            with self.canvas:
+                # Set the current color for this line
+                Color(*self.current_color)
 
-            # Store the line in the touch user data for continuation
-            touch.ud["line"] = line
+                # Create a new line starting at the touch position
+                line = Line(points=[touch.x, touch.y], width=self.line_width)
 
-            # Add to drawing history
-            self.drawing_history.append(
-                {
-                    "type": "line_start",
-                    "line": line,
-                    "color": self.current_color,
-                    "width": self.line_width,
-                    "points": [touch.x, touch.y],
-                }
-            )
+                # Store the line in the touch user data for continuation
+                touch.ud["line"] = line
+
+                # Add to drawing history
+                self.drawing_history.append(
+                    {
+                        "type": "line_start",
+                        "line": line,
+                        "color": self.current_color,
+                        "width": self.line_width,
+                        "points": [touch.x, touch.y],
+                        "drawing_mode": self.drawing_mode,
+                    }
+                )
+        else:
+            # For shapes and straight lines, we'll create a temporary shape that gets updated during drag
+            touch.ud["temp_shape"] = None
+            touch.ud["drawing_mode"] = self.drawing_mode
 
         return True
 
@@ -161,7 +234,11 @@ class MyCanvas(Widget):
             bool: True if touch was handled, False otherwise
         """
         # Only draw if the touch is within the canvas bounds
-        if self.collide_point(*touch.pos) and "line" in touch.ud:
+        if not self.collide_point(*touch.pos):
+            return True
+
+        if "line" in touch.ud:
+            # Line drawing mode
             # Add the current touch position to the line
             touch.ud["line"].points += [touch.x, touch.y]
 
@@ -173,6 +250,10 @@ class MyCanvas(Widget):
                     and last_entry["line"] == touch.ud["line"]
                 ):
                     last_entry["points"].extend([touch.x, touch.y])
+
+        elif "start_pos" in touch.ud and "drawing_mode" in touch.ud:
+            # Shape drawing mode
+            self._update_temp_shape(touch)
 
         return True
 
@@ -198,6 +279,10 @@ class MyCanvas(Widget):
                     last_entry["type"] = "line_complete"
 
             del touch.ud["line"]
+
+        elif "start_pos" in touch.ud and "drawing_mode" in touch.ud:
+            # Finalize shape drawing
+            self._finalize_shape(touch)
 
         return True
 
@@ -303,3 +388,163 @@ class MyCanvas(Widget):
             int: Current line width in pixels
         """
         return self.line_width
+
+    def set_drawing_mode(self, mode):
+        """
+        Set the current drawing mode.
+
+        Args:
+            mode (str): Drawing mode (line, circle, triangle, rectangle)
+        """
+        if mode in DrawingModes.get_modes():
+            self.drawing_mode = mode
+
+    def get_drawing_mode(self):
+        """
+        Get the current drawing mode.
+
+        Returns:
+            str: Current drawing mode
+        """
+        return self.drawing_mode
+
+    def _update_temp_shape(self, touch):
+        """Update the temporary shape during drag."""
+        if "temp_shape" not in touch.ud:
+            return
+
+        start_x, start_y = touch.ud["start_pos"]
+        current_x, current_y = touch.pos
+        mode = touch.ud["drawing_mode"]
+
+        # Remove the previous temporary shape
+        if touch.ud["temp_shape"]:
+            self.canvas.remove(touch.ud["temp_shape"])
+
+        # Create new temporary shape
+        with self.canvas:
+            Color(*self.current_color)
+            
+            if mode == DrawingModes.STRAIGHT_LINE:
+                # Create a straight line from start to current position
+                touch.ud["temp_shape"] = Line(
+                    points=[start_x, start_y, current_x, current_y],
+                    width=self.line_width
+                )
+                
+            elif mode == DrawingModes.CIRCLE:
+                # Calculate radius from distance between start and current position
+                radius = math.sqrt((current_x - start_x)**2 + (current_y - start_y)**2)
+                # Create circle outline using Line with circle points
+                if radius > 0:
+                    # Generate points for a circle outline
+                    circle_points = []
+                    num_segments = 64  # Number of segments for smooth circle
+                    for i in range(num_segments + 1):  # +1 to close the circle
+                        angle = 2 * math.pi * i / num_segments
+                        x = start_x + radius * math.cos(angle)
+                        y = start_y + radius * math.sin(angle)
+                        circle_points.extend([x, y])
+                    
+                    touch.ud["temp_shape"] = Line(points=circle_points, width=self.line_width)
+                
+            elif mode == DrawingModes.RECTANGLE:
+                # Calculate rectangle bounds
+                min_x = min(start_x, current_x)
+                min_y = min(start_y, current_y)
+                width = abs(current_x - start_x)
+                height = abs(current_y - start_y)
+                touch.ud["temp_shape"] = Line(
+                    rectangle=(min_x, min_y, width, height),
+                    width=self.line_width
+                )
+                
+            elif mode == DrawingModes.TRIANGLE:
+                # Create triangle with three points
+                # Top point at start position, base between start and current
+                mid_x = (start_x + current_x) / 2
+                points = [
+                    start_x, start_y,  # Top point
+                    start_x - (current_x - start_x) / 2, current_y,  # Bottom left
+                    start_x + (current_x - start_x) / 2, current_y,  # Bottom right
+                    start_x, start_y   # Close the triangle
+                ]
+                touch.ud["temp_shape"] = Line(points=points, width=self.line_width)
+
+    def _finalize_shape(self, touch):
+        """Finalize the shape and add it to drawing history."""
+        if "start_pos" not in touch.ud or "drawing_mode" not in touch.ud:
+            return
+
+        start_x, start_y = touch.ud["start_pos"]
+        end_x, end_y = touch.pos
+        mode = touch.ud["drawing_mode"]
+
+        # Remove temporary shape
+        if touch.ud.get("temp_shape"):
+            self.canvas.remove(touch.ud["temp_shape"])
+
+        # Create final shape
+        with self.canvas:
+            Color(*self.current_color)
+            
+            shape_data = {
+                "type": "shape_complete",
+                "color": self.current_color,
+                "width": self.line_width,
+                "drawing_mode": mode,
+                "start_pos": (start_x, start_y),
+                "end_pos": (end_x, end_y),
+            }
+            
+            if mode == DrawingModes.STRAIGHT_LINE:
+                # Create a straight line from start to end position
+                final_shape = Line(
+                    points=[start_x, start_y, end_x, end_y],
+                    width=self.line_width
+                )
+                shape_data["points"] = [start_x, start_y, end_x, end_y]
+                
+            elif mode == DrawingModes.CIRCLE:
+                radius = math.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
+                # Create circle outline using Line with circle points
+                if radius > 0:
+                    circle_points = []
+                    num_segments = 64  # Number of segments for smooth circle
+                    for i in range(num_segments + 1):  # +1 to close the circle
+                        angle = 2 * math.pi * i / num_segments
+                        x = start_x + radius * math.cos(angle)
+                        y = start_y + radius * math.sin(angle)
+                        circle_points.extend([x, y])
+                    
+                    final_shape = Line(points=circle_points, width=self.line_width)
+                    shape_data["radius"] = radius
+                    shape_data["circle_points"] = circle_points
+                else:
+                    # If radius is 0, create a small point
+                    final_shape = Line(points=[start_x, start_y, start_x, start_y], width=self.line_width)
+                    shape_data["radius"] = 0
+                
+            elif mode == DrawingModes.RECTANGLE:
+                min_x = min(start_x, end_x)
+                min_y = min(start_y, end_y)
+                width = abs(end_x - start_x)
+                height = abs(end_y - start_y)
+                final_shape = Line(
+                    rectangle=(min_x, min_y, width, height),
+                    width=self.line_width
+                )
+                shape_data["rect_bounds"] = (min_x, min_y, width, height)
+                
+            elif mode == DrawingModes.TRIANGLE:
+                points = [
+                    start_x, start_y,
+                    start_x - (end_x - start_x) / 2, end_y,
+                    start_x + (end_x - start_x) / 2, end_y,
+                    start_x, start_y
+                ]
+                final_shape = Line(points=points, width=self.line_width)
+                shape_data["points"] = points
+
+            shape_data["shape"] = final_shape
+            self.drawing_history.append(shape_data)
