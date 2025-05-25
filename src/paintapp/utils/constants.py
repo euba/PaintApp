@@ -42,10 +42,10 @@ class Colors:
 class LineWidths:
     """Line width constants."""
 
-    # Renamed width constants (removed THIN, renamed others)
-    THIN = 2      # Previously NORMAL
-    NORMAL = 4    # Previously THICK
-    THICK = 8     # Previously EXTRA_THICK
+    # Updated width constants - made thicker
+    THIN = 3      # Increased from 2
+    NORMAL = 6    # Increased from 4  
+    THICK = 12    # Increased from 8
 
     @classmethod
     def get_width_map(cls):
@@ -60,6 +60,26 @@ class LineWidths:
     def get_available_widths(cls):
         """Get list of available width names."""
         return list(cls.get_width_map().keys())
+
+
+class LineStyles:
+    """Line style constants."""
+    
+    SOLID = "solid"
+    DASHED = "dashed"
+    
+    @classmethod
+    def get_styles(cls):
+        """Get all available line styles."""
+        return [cls.SOLID, cls.DASHED]
+    
+    @classmethod
+    def get_style_labels(cls):
+        """Get human-readable labels for line styles."""
+        return {
+            cls.SOLID: "Solid",
+            cls.DASHED: "Dashed",
+        }
 
 
 class DrawingModes:

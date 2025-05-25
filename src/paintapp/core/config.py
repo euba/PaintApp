@@ -17,8 +17,9 @@ class AppConfig:
     DEFAULT_BACKGROUND_COLOR = (1, 1, 1, 1)  # White
 
     # Default drawing settings
-    DEFAULT_LINE_WIDTH = 4  # "Normal" width (previously "Thick")
+    DEFAULT_LINE_WIDTH = 6  # "Normal" width (updated to new thicker value)
     DEFAULT_COLOR = (0, 0, 0, 1)  # Black
+    DEFAULT_LINE_STYLE = "solid"  # Default to solid lines
 
     @classmethod
     def setup_window(cls, width=None, height=None, resizable=True):
@@ -49,3 +50,8 @@ class AppConfig:
     def get_default_color(cls):
         """Get the default drawing color."""
         return cls.DEFAULT_COLOR
+
+    @classmethod
+    def get_default_line_style(cls):
+        """Get the default line style."""
+        return cls.DEFAULT_LINE_STYLE

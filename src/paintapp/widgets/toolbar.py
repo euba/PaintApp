@@ -13,8 +13,8 @@ from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
 import os
 
-from .buttons import ColorButton, LineWidthButton, DrawingModeButton
-from ..utils.constants import Colors, LineWidths, DrawingModes
+from .buttons import ColorButton, LineWidthButton, DrawingModeButton, LineStyleButton
+from ..utils.constants import Colors, LineWidths, DrawingModes, LineStyles
 
 
 class Toolbar(BoxLayout):
@@ -189,18 +189,18 @@ class Toolbar(BoxLayout):
         self.add_widget(color_section)
 
     def _add_line_width_section(self):
-        """Add line width selection buttons to the toolbar."""
+        """Add line width selection buttons and line style button to the toolbar."""
         # Line width section container
         width_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.17,  # Further reduced to accommodate new spacer
+            size_hint_x=0.20,  # Increased to accommodate line style button
             spacing=3
         )
 
         # Line width label
         width_label = Label(
             text="Width:",
-            size_hint_x=0.2,  # 20% of the width section
+            size_hint_x=0.15,  # Reduced to make room for more buttons
             text_size=(None, None),
             halign="center",
             valign="middle"
@@ -210,7 +210,7 @@ class Toolbar(BoxLayout):
         # Line width buttons container
         widths_container = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.8,  # 80% of the width section
+            size_hint_x=0.6,  # Reduced to make room for line style button
             spacing=2
         )
 
@@ -236,6 +236,17 @@ class Toolbar(BoxLayout):
             widths_container.add_widget(width_btn)
 
         width_section.add_widget(widths_container)
+
+        # Line style button (dashed/solid toggle)
+        self.line_style_button = LineStyleButton(
+            style="solid",  # Default to solid
+            group="line_style",
+            size_hint_x=0.25,  # 25% of the width section
+            size_hint_y=1.0
+        )
+        self.line_style_button.bind(on_press=self._on_line_style_selected)
+        width_section.add_widget(self.line_style_button)
+
         self.add_widget(width_section)
 
         # Add invisible spacer between line width and undo/redo buttons
@@ -334,6 +345,24 @@ class Toolbar(BoxLayout):
         if self.canvas_widget and hasattr(self.canvas_widget, "set_drawing_mode"):
             mode = button.get_mode()
             self.canvas_widget.set_drawing_mode(mode)
+
+    def _on_line_style_selected(self, button):
+        """
+        Handle line style selection (toggle between solid and dashed).
+
+        Args:
+            button (LineStyleButton): The line style button
+        """
+        if self.canvas_widget and hasattr(self.canvas_widget, "set_line_style"):
+            # Toggle between solid and dashed
+            current_style = button.get_style()
+            if current_style == "solid":
+                new_style = "dashed"
+            else:
+                new_style = "solid"
+            
+            button.set_style(new_style)
+            self.canvas_widget.set_line_style(new_style)
 
     def _on_undo_pressed(self, button):
         """

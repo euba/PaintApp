@@ -14,7 +14,7 @@ from kivy.graphics.fbo import Fbo
 from kivy.graphics.gl_instructions import ClearColor, ClearBuffers
 import math
 
-from ..utils.constants import LineWidths, DrawingModes
+from ..utils.constants import LineWidths, DrawingModes, LineStyles
 from .config import AppConfig
 
 
@@ -34,6 +34,7 @@ class MyCanvas(Widget):
         self.line_width = AppConfig.get_default_line_width()
         self.current_color = AppConfig.get_default_color()
         self.drawing_mode = DrawingModes.LINE  # Default to line drawing
+        self.line_style = AppConfig.get_default_line_style()  # Default to solid lines
 
         # Drawing history for potential undo functionality
         self.drawing_history = []
@@ -251,7 +252,7 @@ class MyCanvas(Widget):
                 Color(*self.current_color)
 
                 # Create a new line starting at the touch position
-                line = Line(points=[touch.x, touch.y], width=self.line_width)
+                line = self._create_line(points=[touch.x, touch.y])
 
                 # Store the line in the touch user data for continuation
                 touch.ud["line"] = line
@@ -263,6 +264,7 @@ class MyCanvas(Widget):
                         "line": line,
                         "color": self.current_color,
                         "width": self.line_width,
+                        "style": self.line_style,
                         "points": [touch.x, touch.y],
                         "drawing_mode": self.drawing_mode,
                     }
@@ -340,6 +342,10 @@ class MyCanvas(Widget):
                     and last_entry["line"] == touch.ud["line"]
                 ):
                     last_entry["type"] = "line_complete"
+                    
+                    # If this is a dashed line, replace it with dashed segments
+                    if self.line_style == LineStyles.DASHED:
+                        self._convert_to_dashed_line(last_entry)
 
             del touch.ud["line"]
 
@@ -479,6 +485,195 @@ class MyCanvas(Widget):
         """
         return self.drawing_mode
 
+    def set_line_style(self, style):
+        """
+        Set the current line style.
+
+        Args:
+            style (str): Line style ("solid" or "dashed")
+        """
+        if style in LineStyles.get_styles():
+            self.line_style = style
+
+    def get_line_style(self):
+        """
+        Get the current line style.
+
+        Returns:
+            str: Current line style
+        """
+        return self.line_style
+
+    def _create_line(self, **kwargs):
+        """
+        Create a line with current style settings.
+        
+        Args:
+            **kwargs: Arguments to pass to Line constructor
+            
+        Returns:
+            Line: The created line object
+        """
+        line = Line(width=self.line_width, **kwargs)
+        
+        # For dashed lines, we'll handle the dashing in a different way
+        # by creating multiple line segments when the line is finalized
+        return line
+    
+    def _create_dashed_line(self, **kwargs):
+        """
+        Create a dashed line by drawing multiple short segments.
+        
+        Args:
+            **kwargs: Arguments that would be passed to Line constructor
+            
+        Returns:
+            list: List of Line objects representing the dashed pattern
+        """
+        dash_length = max(self.line_width * 4, 20)  # Length of each dash
+        gap_length = dash_length  # Length of each gap (same as dash for 50% duty cycle)
+        
+        lines = []
+        
+        if 'points' in kwargs:
+            points = kwargs['points']
+            if len(points) >= 4:
+                lines.extend(self._create_dashed_line_from_points(points, dash_length, gap_length))
+        elif 'rectangle' in kwargs:
+            rect = kwargs['rectangle']
+            lines.extend(self._create_dashed_rectangle(rect, dash_length, gap_length))
+        
+        return lines
+    
+    def _create_dashed_line_from_points(self, points, dash_length, gap_length):
+        """Create dashed line segments from a list of points."""
+        lines = []
+        
+        # Process points in pairs to create line segments
+        for i in range(0, len(points) - 2, 2):
+            x1, y1 = points[i], points[i + 1]
+            x2, y2 = points[i + 2], points[i + 3]
+            
+            # Calculate line length and direction
+            dx = x2 - x1
+            dy = y2 - y1
+            line_length = math.sqrt(dx * dx + dy * dy)
+            
+            if line_length > 0:
+                # Normalize direction vector
+                dx_norm = dx / line_length
+                dy_norm = dy / line_length
+                
+                # Create dashed segments along this line
+                current_pos = 0
+                while current_pos < line_length:
+                    # Calculate dash start and end positions
+                    dash_start = current_pos
+                    dash_end = min(current_pos + dash_length, line_length)
+                    
+                    # Calculate actual coordinates
+                    start_x = x1 + dx_norm * dash_start
+                    start_y = y1 + dy_norm * dash_start
+                    end_x = x1 + dx_norm * dash_end
+                    end_y = y1 + dy_norm * dash_end
+                    
+                    # Create the dash segment
+                    dash_line = Line(
+                        points=[start_x, start_y, end_x, end_y],
+                        width=self.line_width
+                    )
+                    lines.append(dash_line)
+                    
+                    # Move to next dash (skip the gap)
+                    current_pos += dash_length + gap_length
+        
+        return lines
+    
+    def _create_dashed_rectangle(self, rect, dash_length, gap_length):
+        """Create dashed rectangle by creating dashed lines for each side."""
+        x, y, width, height = rect
+        lines = []
+        
+        # Top side
+        top_points = [x, y + height, x + width, y + height]
+        lines.extend(self._create_dashed_line_from_points(top_points, dash_length, gap_length))
+        
+        # Right side
+        right_points = [x + width, y + height, x + width, y]
+        lines.extend(self._create_dashed_line_from_points(right_points, dash_length, gap_length))
+        
+        # Bottom side
+        bottom_points = [x + width, y, x, y]
+        lines.extend(self._create_dashed_line_from_points(bottom_points, dash_length, gap_length))
+        
+        # Left side
+        left_points = [x, y, x, y + height]
+        lines.extend(self._create_dashed_line_from_points(left_points, dash_length, gap_length))
+        
+        return lines
+
+    def _convert_to_dashed_line(self, line_entry):
+        """Convert a solid line entry to dashed line segments."""
+        if "points" not in line_entry or "line" not in line_entry:
+            return
+            
+        # Remove the original solid line from canvas
+        original_line = line_entry["line"]
+        if original_line in self.canvas.children:
+            self.canvas.remove(original_line)
+        
+        # Create dashed segments
+        points = line_entry["points"]
+        dash_length = max(self.line_width * 3, 15)  # Shorter dashes for better visibility
+        gap_length = dash_length * 1.5  # Larger gaps for more spacing
+        
+        # Draw dashed segments
+        with self.canvas:
+            Color(*line_entry["color"])
+            dash_segments = self._create_dashed_line_from_points(points, dash_length, gap_length)
+            
+            # Store the dash segments in the line entry
+            line_entry["dash_segments"] = dash_segments
+
+    def _convert_shape_to_dashed(self, shape_entry):
+        """Convert a solid shape to dashed segments."""
+        if "shape" not in shape_entry:
+            return
+            
+        # Remove the original solid shape from canvas
+        original_shape = shape_entry["shape"]
+        if original_shape in self.canvas.children:
+            self.canvas.remove(original_shape)
+        
+        # Create dashed segments based on shape type
+        mode = shape_entry.get("drawing_mode", "")
+        dash_length = max(self.line_width * 3, 15)
+        gap_length = dash_length * 1.5
+        
+        with self.canvas:
+            Color(*shape_entry["color"])
+            dash_segments = []
+            
+            if mode == DrawingModes.STRAIGHT_LINE and "points" in shape_entry:
+                dash_segments = self._create_dashed_line_from_points(
+                    shape_entry["points"], dash_length, gap_length
+                )
+            elif mode == DrawingModes.CIRCLE and "circle_points" in shape_entry:
+                dash_segments = self._create_dashed_line_from_points(
+                    shape_entry["circle_points"], dash_length, gap_length
+                )
+            elif mode == DrawingModes.RECTANGLE and "rect_bounds" in shape_entry:
+                dash_segments = self._create_dashed_rectangle(
+                    shape_entry["rect_bounds"], dash_length, gap_length
+                )
+            elif mode == DrawingModes.TRIANGLE and "points" in shape_entry:
+                dash_segments = self._create_dashed_line_from_points(
+                    shape_entry["points"], dash_length, gap_length
+                )
+            
+            # Store the dash segments in the shape entry
+            shape_entry["dash_segments"] = dash_segments
+
     def _get_font_size_from_line_width(self):
         """
         Calculate font size based on current line width.
@@ -513,9 +708,8 @@ class MyCanvas(Widget):
             
             if mode == DrawingModes.STRAIGHT_LINE:
                 # Create a straight line from start to current position
-                touch.ud["temp_shape"] = Line(
-                    points=[start_x, start_y, current_x, current_y],
-                    width=self.line_width
+                touch.ud["temp_shape"] = self._create_line(
+                    points=[start_x, start_y, current_x, current_y]
                 )
                 
             elif mode == DrawingModes.CIRCLE:
@@ -532,7 +726,7 @@ class MyCanvas(Widget):
                         y = start_y + radius * math.sin(angle)
                         circle_points.extend([x, y])
                     
-                    touch.ud["temp_shape"] = Line(points=circle_points, width=self.line_width)
+                    touch.ud["temp_shape"] = self._create_line(points=circle_points)
                 
             elif mode == DrawingModes.RECTANGLE:
                 # Calculate rectangle bounds
@@ -540,9 +734,8 @@ class MyCanvas(Widget):
                 min_y = min(start_y, current_y)
                 width = abs(current_x - start_x)
                 height = abs(current_y - start_y)
-                touch.ud["temp_shape"] = Line(
-                    rectangle=(min_x, min_y, width, height),
-                    width=self.line_width
+                touch.ud["temp_shape"] = self._create_line(
+                    rectangle=(min_x, min_y, width, height)
                 )
                 
             elif mode == DrawingModes.TRIANGLE:
@@ -555,7 +748,7 @@ class MyCanvas(Widget):
                     start_x + (current_x - start_x) / 2, current_y,  # Bottom right
                     start_x, start_y   # Close the triangle
                 ]
-                touch.ud["temp_shape"] = Line(points=points, width=self.line_width)
+                touch.ud["temp_shape"] = self._create_line(points=points)
 
     def _finalize_shape(self, touch):
         """Finalize the shape and add it to drawing history."""
@@ -578,6 +771,7 @@ class MyCanvas(Widget):
                 "type": "shape_complete",
                 "color": self.current_color,
                 "width": self.line_width,
+                "style": self.line_style,
                 "drawing_mode": mode,
                 "start_pos": (start_x, start_y),
                 "end_pos": (end_x, end_y),
@@ -585,9 +779,8 @@ class MyCanvas(Widget):
             
             if mode == DrawingModes.STRAIGHT_LINE:
                 # Create a straight line from start to end position
-                final_shape = Line(
-                    points=[start_x, start_y, end_x, end_y],
-                    width=self.line_width
+                final_shape = self._create_line(
+                    points=[start_x, start_y, end_x, end_y]
                 )
                 shape_data["points"] = [start_x, start_y, end_x, end_y]
                 
@@ -603,12 +796,12 @@ class MyCanvas(Widget):
                         y = start_y + radius * math.sin(angle)
                         circle_points.extend([x, y])
                     
-                    final_shape = Line(points=circle_points, width=self.line_width)
+                    final_shape = self._create_line(points=circle_points)
                     shape_data["radius"] = radius
                     shape_data["circle_points"] = circle_points
                 else:
                     # If radius is 0, create a small point
-                    final_shape = Line(points=[start_x, start_y, start_x, start_y], width=self.line_width)
+                    final_shape = self._create_line(points=[start_x, start_y, start_x, start_y])
                     shape_data["radius"] = 0
                 
             elif mode == DrawingModes.RECTANGLE:
@@ -616,9 +809,8 @@ class MyCanvas(Widget):
                 min_y = min(start_y, end_y)
                 width = abs(end_x - start_x)
                 height = abs(end_y - start_y)
-                final_shape = Line(
-                    rectangle=(min_x, min_y, width, height),
-                    width=self.line_width
+                final_shape = self._create_line(
+                    rectangle=(min_x, min_y, width, height)
                 )
                 shape_data["rect_bounds"] = (min_x, min_y, width, height)
                 
@@ -629,11 +821,15 @@ class MyCanvas(Widget):
                     start_x + (end_x - start_x) / 2, end_y,
                     start_x, start_y
                 ]
-                final_shape = Line(points=points, width=self.line_width)
+                final_shape = self._create_line(points=points)
                 shape_data["points"] = points
 
             shape_data["shape"] = final_shape
             self.drawing_history.append(shape_data)
+            
+            # If this is a dashed shape, convert it to dashed segments
+            if self.line_style == LineStyles.DASHED:
+                self._convert_shape_to_dashed(shape_data)
 
     def _create_text_input(self, x, y):
         """Create a text input widget directly on the canvas."""
@@ -773,7 +969,8 @@ class MyCanvas(Widget):
                 "type": entry.get("type", "unknown"),
                 "color": entry.get("color", (0, 0, 0, 1)),
                 "width": entry.get("width", 2),
-                "drawing_mode": entry.get("drawing_mode", "line")
+                "drawing_mode": entry.get("drawing_mode", "line"),
+                "style": entry.get("style", "solid")
             }
             
             # Copy specific data based on entry type
@@ -825,7 +1022,8 @@ class MyCanvas(Widget):
                 "type": entry.get("type", "unknown"),
                 "color": entry.get("color", (0, 0, 0, 1)),
                 "width": entry.get("width", 2),
-                "drawing_mode": entry.get("drawing_mode", "line")
+                "drawing_mode": entry.get("drawing_mode", "line"),
+                "style": entry.get("style", "solid")
             }
             
             # Copy specific data based on entry type
@@ -878,7 +1076,8 @@ class MyCanvas(Widget):
                 "type": entry.get("type", "unknown"),
                 "color": entry.get("color", (0, 0, 0, 1)),
                 "width": entry.get("width", 2),
-                "drawing_mode": entry.get("drawing_mode", "line")
+                "drawing_mode": entry.get("drawing_mode", "line"),
+                "style": entry.get("style", "solid")
             }
             
             # Copy specific data based on entry type
@@ -934,21 +1133,46 @@ class MyCanvas(Widget):
                     width = entry.get("width", 2)
                     
                     if entry_type in ["line_start", "line_complete"] and "points" in entry:
-                        # Redraw line
-                        Line(points=entry["points"], width=width)
+                        # Redraw line with style support
+                        style = entry.get("style", "solid")
+                        if style == LineStyles.DASHED:
+                            # Redraw as dashed line
+                            dash_length = max(width * 3, 15)
+                            gap_length = dash_length * 1.5
+                            self._create_dashed_line_from_points(entry["points"], dash_length, gap_length)
+                        else:
+                            # Draw solid line
+                            Line(points=entry["points"], width=width)
                         
                     elif entry_type == "shape_complete":
                         # Redraw shape
                         mode = entry.get("drawing_mode", "line")
                         
-                        if mode == DrawingModes.STRAIGHT_LINE and "points" in entry:
-                            Line(points=entry["points"], width=width)
-                        elif mode == DrawingModes.CIRCLE and "circle_points" in entry:
-                            Line(points=entry["circle_points"], width=width)
-                        elif mode == DrawingModes.RECTANGLE and "rect_bounds" in entry:
-                            Line(rectangle=entry["rect_bounds"], width=width)
-                        elif mode == DrawingModes.TRIANGLE and "points" in entry:
-                            Line(points=entry["points"], width=width)
+                        style = entry.get("style", "solid")
+                        
+                        if style == LineStyles.DASHED:
+                            # Redraw as dashed shape
+                            dash_length = max(width * 3, 15)
+                            gap_length = dash_length * 1.5
+                            
+                            if mode == DrawingModes.STRAIGHT_LINE and "points" in entry:
+                                self._create_dashed_line_from_points(entry["points"], dash_length, gap_length)
+                            elif mode == DrawingModes.CIRCLE and "circle_points" in entry:
+                                self._create_dashed_line_from_points(entry["circle_points"], dash_length, gap_length)
+                            elif mode == DrawingModes.RECTANGLE and "rect_bounds" in entry:
+                                self._create_dashed_rectangle(entry["rect_bounds"], dash_length, gap_length)
+                            elif mode == DrawingModes.TRIANGLE and "points" in entry:
+                                self._create_dashed_line_from_points(entry["points"], dash_length, gap_length)
+                        else:
+                            # Draw solid shapes
+                            if mode == DrawingModes.STRAIGHT_LINE and "points" in entry:
+                                Line(points=entry["points"], width=width)
+                            elif mode == DrawingModes.CIRCLE and "circle_points" in entry:
+                                Line(points=entry["circle_points"], width=width)
+                            elif mode == DrawingModes.RECTANGLE and "rect_bounds" in entry:
+                                Line(rectangle=entry["rect_bounds"], width=width)
+                            elif mode == DrawingModes.TRIANGLE and "points" in entry:
+                                Line(points=entry["points"], width=width)
                             
                     elif entry_type == "text_complete":
                         # Redraw text
@@ -984,6 +1208,42 @@ class MyCanvas(Widget):
         """Check if redo is possible."""
         return len(self.redo_stack) > 0
 
+    def _export_dashed_line_segments(self, points, dash_length, gap_length, draw, rgb_color, width_px, canvas_height):
+        """Create dashed line segments for export."""
+        # Process points in pairs to create line segments
+        for i in range(0, len(points) - 2, 2):
+            x1, y1 = points[i], canvas_height - points[i + 1]  # Flip Y coordinate
+            x2, y2 = points[i + 2], canvas_height - points[i + 3]  # Flip Y coordinate
+            
+            # Calculate line length and direction
+            dx = x2 - x1
+            dy = y2 - y1
+            line_length = math.sqrt(dx * dx + dy * dy)
+            
+            if line_length > 0:
+                # Normalize direction vector
+                dx_norm = dx / line_length
+                dy_norm = dy / line_length
+                
+                # Create dashed segments along this line
+                current_pos = 0
+                while current_pos < line_length:
+                    # Calculate dash start and end positions
+                    dash_start = current_pos
+                    dash_end = min(current_pos + dash_length, line_length)
+                    
+                    # Calculate actual coordinates
+                    start_x = x1 + dx_norm * dash_start
+                    start_y = y1 + dy_norm * dash_start
+                    end_x = x1 + dx_norm * dash_end
+                    end_y = y1 + dy_norm * dash_end
+                    
+                    # Draw the dash segment
+                    draw.line([(start_x, start_y), (end_x, end_y)], fill=rgb_color, width=int(width_px))
+                    
+                    # Move to next dash (skip the gap)
+                    current_pos += dash_length + gap_length
+
     def export_to_png(self, filename):
         """
         Export the canvas to a PNG file with white background.
@@ -1011,66 +1271,108 @@ class MyCanvas(Widget):
                     
                     entry_type = entry.get("type", "unknown")
                     width_px = entry.get("width", 2)
+                    style = entry.get("style", "solid")
                     
                     if entry_type in ["line_start", "line_complete"] and "points" in entry:
                         # Draw line
                         points = entry["points"]
                         if len(points) >= 4:
-                            # Convert points to PIL format and draw line segments
-                            for j in range(0, len(points) - 2, 2):
-                                x1, y1 = points[j], height - points[j + 1]  # Flip Y coordinate
-                                x2, y2 = points[j + 2], height - points[j + 3]  # Flip Y coordinate
-                                draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=int(width_px))
+                            if style == LineStyles.DASHED:
+                                # Draw dashed line
+                                dash_length = max(width_px * 3, 15)
+                                gap_length = dash_length * 1.5
+                                self._export_dashed_line_segments(points, dash_length, gap_length, draw, rgb_color, width_px, height)
+                            else:
+                                # Draw solid line
+                                for j in range(0, len(points) - 2, 2):
+                                    x1, y1 = points[j], height - points[j + 1]  # Flip Y coordinate
+                                    x2, y2 = points[j + 2], height - points[j + 3]  # Flip Y coordinate
+                                    draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=int(width_px))
                                 
                     elif entry_type == "shape_complete":
                         # Draw shape
                         mode = entry.get("drawing_mode", "line")
                         
-                        if mode == "rectangle" and "rect_bounds" in entry:
-                            x, y, w, h = entry["rect_bounds"]
-                            # Flip Y coordinate for PIL
-                            y = height - y - h
-                            draw.rectangle([x, y, x + w, y + h], outline=rgb_color, width=int(width_px))
+                        if style == LineStyles.DASHED:
+                            # Draw dashed shapes
+                            dash_length = max(width_px * 3, 15)
+                            gap_length = dash_length * 1.5
                             
-                        elif mode in ["line", "straight_line"] and "points" in entry:
-                            points = entry["points"]
-                            if len(points) >= 4:
-                                x1, y1, x2, y2 = points[0], height - points[1], points[2], height - points[3]
-                                draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=int(width_px))
+                            if mode == "rectangle" and "rect_bounds" in entry:
+                                # Draw dashed rectangle by creating points for each side
+                                x, y, w, h = entry["rect_bounds"]
+                                # Create points for rectangle outline
+                                rect_points = [
+                                    x, y + h, x + w, y + h,  # Top side
+                                    x + w, y + h, x + w, y,  # Right side
+                                    x + w, y, x, y,          # Bottom side
+                                    x, y, x, y + h           # Left side
+                                ]
+                                self._export_dashed_line_segments(rect_points, dash_length, gap_length, draw, rgb_color, width_px, height)
                                 
-                        elif mode == "circle" and "circle_points" in entry:
-                            # Draw circle as polygon
-                            points = entry["circle_points"]
-                            if len(points) >= 4:
-                                # Convert points and flip Y coordinates
-                                circle_coords = []
-                                for j in range(0, len(points), 2):
-                                    if j + 1 < len(points):
-                                        x, y = points[j], height - points[j + 1]
-                                        circle_coords.append((x, y))
-                                if len(circle_coords) > 2:
-                                    # Draw as polygon outline
-                                    for k in range(len(circle_coords)):
-                                        start = circle_coords[k]
-                                        end = circle_coords[(k + 1) % len(circle_coords)]
-                                        draw.line([start, end], fill=rgb_color, width=int(width_px))
-                                        
-                        elif mode == "triangle" and "points" in entry:
-                            # Draw triangle
-                            points = entry["points"]
-                            if len(points) >= 6:
-                                # Convert points and flip Y coordinates
-                                triangle_coords = []
-                                for j in range(0, min(6, len(points)), 2):
-                                    if j + 1 < len(points):
-                                        x, y = points[j], height - points[j + 1]
-                                        triangle_coords.append((x, y))
-                                if len(triangle_coords) >= 3:
-                                    # Draw triangle outline
-                                    for k in range(len(triangle_coords)):
-                                        start = triangle_coords[k]
-                                        end = triangle_coords[(k + 1) % len(triangle_coords)]
-                                        draw.line([start, end], fill=rgb_color, width=int(width_px))
+                            elif mode in ["line", "straight_line"] and "points" in entry:
+                                points = entry["points"]
+                                if len(points) >= 4:
+                                    self._export_dashed_line_segments(points, dash_length, gap_length, draw, rgb_color, width_px, height)
+                                    
+                            elif mode == "circle" and "circle_points" in entry:
+                                # Draw dashed circle
+                                points = entry["circle_points"]
+                                if len(points) >= 4:
+                                    self._export_dashed_line_segments(points, dash_length, gap_length, draw, rgb_color, width_px, height)
+                                    
+                            elif mode == "triangle" and "points" in entry:
+                                # Draw dashed triangle
+                                points = entry["points"]
+                                if len(points) >= 6:
+                                    self._export_dashed_line_segments(points, dash_length, gap_length, draw, rgb_color, width_px, height)
+                        else:
+                            # Draw solid shapes
+                            if mode == "rectangle" and "rect_bounds" in entry:
+                                x, y, w, h = entry["rect_bounds"]
+                                # Flip Y coordinate for PIL
+                                y = height - y - h
+                                draw.rectangle([x, y, x + w, y + h], outline=rgb_color, width=int(width_px))
+                                
+                            elif mode in ["line", "straight_line"] and "points" in entry:
+                                points = entry["points"]
+                                if len(points) >= 4:
+                                    x1, y1, x2, y2 = points[0], height - points[1], points[2], height - points[3]
+                                    draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=int(width_px))
+                                    
+                            elif mode == "circle" and "circle_points" in entry:
+                                # Draw circle as polygon
+                                points = entry["circle_points"]
+                                if len(points) >= 4:
+                                    # Convert points and flip Y coordinates
+                                    circle_coords = []
+                                    for j in range(0, len(points), 2):
+                                        if j + 1 < len(points):
+                                            x, y = points[j], height - points[j + 1]
+                                            circle_coords.append((x, y))
+                                    if len(circle_coords) > 2:
+                                        # Draw as polygon outline
+                                        for k in range(len(circle_coords)):
+                                            start = circle_coords[k]
+                                            end = circle_coords[(k + 1) % len(circle_coords)]
+                                            draw.line([start, end], fill=rgb_color, width=int(width_px))
+                                            
+                            elif mode == "triangle" and "points" in entry:
+                                # Draw triangle
+                                points = entry["points"]
+                                if len(points) >= 6:
+                                    # Convert points and flip Y coordinates
+                                    triangle_coords = []
+                                    for j in range(0, min(6, len(points)), 2):
+                                        if j + 1 < len(points):
+                                            x, y = points[j], height - points[j + 1]
+                                            triangle_coords.append((x, y))
+                                    if len(triangle_coords) >= 3:
+                                        # Draw triangle outline
+                                        for k in range(len(triangle_coords)):
+                                            start = triangle_coords[k]
+                                            end = triangle_coords[(k + 1) % len(triangle_coords)]
+                                            draw.line([start, end], fill=rgb_color, width=int(width_px))
                                         
                     elif entry_type == "text_complete":
                         # Draw text (simplified - just draw a text placeholder)

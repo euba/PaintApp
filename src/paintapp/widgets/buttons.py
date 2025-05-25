@@ -246,3 +246,50 @@ class DrawingModeButton(RadioButton):
             "text": "T",  # Letter T for text
         }
         self.text = mode_labels.get(mode, mode.title())
+
+
+class LineStyleButton(RadioButton):
+    """
+    A specialized radio button for line style selection (solid/dashed).
+
+    This button toggles between solid and dashed line styles.
+    """
+
+    def __init__(self, style=None, **kwargs):
+        """
+        Initialize the line style button.
+
+        Args:
+            style (str): Line style ("solid" or "dashed")
+            **kwargs: Additional keyword arguments for the parent class
+        """
+        super().__init__(**kwargs)
+        self.line_style = style or "solid"
+
+        # Set the button text - use ":" for dashed lines as requested
+        if self.line_style == "dashed":
+            self.text = ":"
+        else:
+            self.text = "—"  # Em dash for solid lines
+
+    def get_style(self):
+        """
+        Get the line style associated with this button.
+
+        Returns:
+            str: Line style ("solid" or "dashed")
+        """
+        return self.line_style
+
+    def set_style(self, style):
+        """
+        Set the line style.
+
+        Args:
+            style (str): Line style ("solid" or "dashed")
+        """
+        self.line_style = style
+        if style == "dashed":
+            self.text = ":"
+        else:
+            self.text = "—"  # Em dash for solid lines
