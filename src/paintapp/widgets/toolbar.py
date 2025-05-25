@@ -92,20 +92,10 @@ class Toolbar(BoxLayout):
             spacing=3
         )
 
-        # Drawing mode label
-        mode_label = Label(
-            text="Tools:",
-            size_hint_x=0.25,  # 25% of the mode section
-            text_size=(None, None),
-            halign="center",
-            valign="middle"
-        )
-        mode_section.add_widget(mode_label)
-
-        # Drawing mode buttons container
+        # Drawing mode buttons container (now takes full width)
         modes_container = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.75,  # 75% of the mode section
+            size_hint_x=1.0,  # Full width of the mode section
             spacing=2
         )
 
@@ -141,20 +131,10 @@ class Toolbar(BoxLayout):
             spacing=3
         )
 
-        # Color label
-        color_label = Label(
-            text="Colors:",
-            size_hint_x=0.2,  # Increased from 15% to 20% to give more space for label
-            text_size=(None, None),
-            halign="center",
-            valign="middle"
-        )
-        color_section.add_widget(color_label)
-
-        # Color buttons container - reduced to make buttons smaller
+        # Color buttons container (now takes more width)
         colors_container = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.6,  # Reduced from 85% to 60% (30% reduction)
+            size_hint_x=0.8,  # Increased from 60% to 80%
             spacing=4  # Increased spacing between buttons
         )
 
@@ -199,20 +179,10 @@ class Toolbar(BoxLayout):
             spacing=3
         )
 
-        # Line width label
-        width_label = Label(
-            text="Width:",
-            size_hint_x=0.15,  # Reduced to make room for more buttons
-            text_size=(None, None),
-            halign="center",
-            valign="middle"
-        )
-        width_section.add_widget(width_label)
-
-        # Line width buttons container
+        # Line width buttons container (now takes more width)
         widths_container = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.6,  # Reduced to make room for line style button
+            size_hint_x=0.75,  # Increased from 60% to 75%
             spacing=2
         )
 

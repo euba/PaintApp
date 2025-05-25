@@ -706,8 +706,12 @@ class MyCanvas(Widget):
             
         # Remove the original solid line from canvas
         original_line = line_entry["line"]
-        if original_line in self.canvas.children:
-            self.canvas.remove(original_line)
+        try:
+            if original_line in self.canvas.children:
+                self.canvas.remove(original_line)
+        except (ValueError, AttributeError):
+            # Line might have already been removed or doesn't exist
+            pass
         
         # Create dashed segments
         points = line_entry["points"]
@@ -729,8 +733,12 @@ class MyCanvas(Widget):
             
         # Remove the original solid shape from canvas
         original_shape = shape_entry["shape"]
-        if original_shape in self.canvas.children:
-            self.canvas.remove(original_shape)
+        try:
+            if original_shape in self.canvas.children:
+                self.canvas.remove(original_shape)
+        except (ValueError, AttributeError):
+            # Shape might have already been removed or doesn't exist
+            pass
         
         # Create dashed segments based on shape type
         mode = shape_entry.get("drawing_mode", "")
@@ -787,7 +795,12 @@ class MyCanvas(Widget):
 
         # Remove the previous temporary shape
         if touch.ud["temp_shape"]:
-            self.canvas.remove(touch.ud["temp_shape"])
+            try:
+                if touch.ud["temp_shape"] in self.canvas.children:
+                    self.canvas.remove(touch.ud["temp_shape"])
+            except (ValueError, AttributeError):
+                # Shape might have already been removed or doesn't exist
+                pass
 
         # Create new temporary shape
         with self.canvas:
@@ -848,7 +861,12 @@ class MyCanvas(Widget):
 
         # Remove temporary shape
         if touch.ud.get("temp_shape"):
-            self.canvas.remove(touch.ud["temp_shape"])
+            try:
+                if touch.ud["temp_shape"] in self.canvas.children:
+                    self.canvas.remove(touch.ud["temp_shape"])
+            except (ValueError, AttributeError):
+                # Shape might have already been removed or doesn't exist
+                pass
 
         # Create final shape
         with self.canvas:
@@ -984,8 +1002,6 @@ class MyCanvas(Widget):
         # Don't auto-finalize on focus loss - only finalize on Enter or explicit click elsewhere
         pass
 
-
-
     def _finalize_text_input(self):
         """Finalize the text input and add text to canvas."""
         if not self.active_text_input:
@@ -994,7 +1010,12 @@ class MyCanvas(Widget):
         text = self.active_text_input.text.strip()
         
         # Remove the text input widget
-        self.remove_widget(self.active_text_input)
+        try:
+            if self.active_text_input in self.children:
+                self.remove_widget(self.active_text_input)
+        except (ValueError, AttributeError):
+            # Widget might have already been removed
+            pass
         
         # Add text to canvas if not empty
         if text and self.text_input_pos:
@@ -1339,6 +1360,50 @@ class MyCanvas(Widget):
                 # Move to next dash (skip the gap)
                 current_pos += dash_length + gap_length
 
+    def _export_dashed_line_segments_direct(self, points, dash_length, gap_length, draw, rgb_color, width_px):
+        """Create high-quality dashed line segments for export with pre-flipped coordinates."""
+        # Ensure minimum segment length to avoid artifacts
+        min_segment_length = 2.0
+        
+        # Process points in pairs to create line segments
+        for i in range(0, len(points) - 2, 2):
+            x1, y1 = float(points[i]), float(points[i + 1])
+            x2, y2 = float(points[i + 2]), float(points[i + 3])
+            
+            # Calculate line length and direction
+            dx = x2 - x1
+            dy = y2 - y1
+            line_length = math.sqrt(dx * dx + dy * dy)
+            
+            # Skip very short segments to avoid artifacts
+            if line_length < min_segment_length:
+                continue
+                
+            # Normalize direction vector
+            dx_norm = dx / line_length
+            dy_norm = dy / line_length
+            
+            # Create dashed segments along this line
+            current_pos = 0.0
+            while current_pos < line_length:
+                # Calculate dash start and end positions
+                dash_start = current_pos
+                dash_end = min(current_pos + dash_length, line_length)
+                
+                # Only draw if dash segment is long enough
+                if dash_end - dash_start >= min_segment_length:
+                    # Calculate actual coordinates with sub-pixel precision
+                    start_x = x1 + dx_norm * dash_start
+                    start_y = y1 + dy_norm * dash_start
+                    end_x = x1 + dx_norm * dash_end
+                    end_y = y1 + dy_norm * dash_end
+                    
+                    # Draw the dash segment with proper line caps
+                    draw.line([(start_x, start_y), (end_x, end_y)], fill=rgb_color, width=max(1, int(round(width_px))))
+                
+                # Move to next dash (skip the gap)
+                current_pos += dash_length + gap_length
+
     def _export_smooth_line_segments(self, points, draw, rgb_color, width_px, canvas_height):
         """Create high-quality smooth line segments for export."""
         min_segment_length = 1.0
@@ -1360,23 +1425,46 @@ class MyCanvas(Widget):
             # Draw line segment with proper width
             draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=max(1, int(round(width_px))))
 
+    def _export_smooth_line_segments_direct(self, points, draw, rgb_color, width_px):
+        """Create high-quality smooth line segments for export with pre-flipped coordinates."""
+        min_segment_length = 1.0
+        
+        # Process points in pairs to create line segments
+        for i in range(0, len(points) - 2, 2):
+            x1, y1 = float(points[i]), float(points[i + 1])
+            x2, y2 = float(points[i + 2]), float(points[i + 3])
+            
+            # Calculate line length
+            dx = x2 - x1
+            dy = y2 - y1
+            line_length = math.sqrt(dx * dx + dy * dy)
+            
+            # Skip very short segments to avoid artifacts
+            if line_length < min_segment_length:
+                continue
+            
+            # Draw line segment with proper width
+            draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=max(1, int(round(width_px))))
+
     def _export_shape_outline(self, points, draw, rgb_color, width_px, canvas_height, is_dashed=False, dash_length=None, gap_length=None):
         """Export shape outline with consistent quality."""
         if not points or len(points) < 4:
             return
             
-        # Scale and flip coordinates
-        scaled_points = []
+        # Points are already scaled, just need to flip Y coordinates for export
+        flipped_points = []
         for i in range(0, len(points), 2):
             if i + 1 < len(points):
                 x = float(points[i])
                 y = float(canvas_height - points[i + 1])
-                scaled_points.extend([x, y])
+                flipped_points.extend([x, y])
         
         if is_dashed and dash_length and gap_length:
-            self._export_dashed_line_segments(scaled_points, dash_length, gap_length, draw, rgb_color, width_px, canvas_height)
+            # For dashed lines, pass the flipped points directly (no double flipping)
+            self._export_dashed_line_segments_direct(flipped_points, dash_length, gap_length, draw, rgb_color, width_px)
         else:
-            self._export_smooth_line_segments(scaled_points, draw, rgb_color, width_px, canvas_height)
+            # For solid lines, pass the flipped points directly (no double flipping)
+            self._export_smooth_line_segments_direct(flipped_points, draw, rgb_color, width_px)
 
     def export_to_png(self, filename, scale_factor=2):
         """
@@ -1491,8 +1579,9 @@ class MyCanvas(Widget):
                         font_size = entry.get("font_size", 24)
                         
                         if text and pos:
-                            # Scale position and font size
-                            x, y = pos[0] * scale_factor, (base_height - pos[1]) * scale_factor
+                            # Scale position and font size - fix Y coordinate flipping
+                            x = pos[0] * scale_factor
+                            y = (export_height - (pos[1] * scale_factor)) - (font_size * scale_factor)
                             scaled_font_size = max(12, int(font_size * scale_factor))
                             
                             try:
@@ -1511,7 +1600,7 @@ class MyCanvas(Widget):
                                     continue
                             
                             # Draw the actual text
-                            draw.text((x, y - scaled_font_size), text, fill=rgb_color, font=font)
+                            draw.text((x, y), text, fill=rgb_color, font=font)
                         
                 except Exception as e:
                     print(f"Warning: Skipping drawing entry during export: {e}")
@@ -1579,3 +1668,75 @@ class MyCanvas(Widget):
                 fbo.texture.save(filename)
         except Exception as e:
             print(f"Simple export failed: {e}")
+
+    def export_canvas_screenshot(self, filename, scale_factor=1):
+        """
+        Export the canvas as a literal screenshot of the displayed pixels.
+        
+        This method captures the actual rendered pixels from the screen buffer,
+        exactly like taking a system screenshot of just the canvas area.
+        
+        Args:
+            filename (str): The path where to save the PNG file
+            scale_factor (int): Scaling factor for higher resolution (default: 1x)
+            
+        Returns:
+            bool: True if export was successful, False otherwise
+        """
+        try:
+            from kivy.graphics.opengl import glReadPixels, GL_RGBA, GL_UNSIGNED_BYTE
+            from kivy.core.window import Window
+            import numpy as np
+            from PIL import Image
+            
+            # Get the canvas position and size in window coordinates
+            canvas_x = int(self.x)
+            canvas_y = int(self.y)
+            canvas_width = int(self.width)
+            canvas_height = int(self.height)
+            
+            # Convert to OpenGL coordinates (flip Y axis)
+            window_height = int(Window.height)
+            gl_y = window_height - canvas_y - canvas_height
+            
+            print(f"Capturing canvas area: x={canvas_x}, y={gl_y}, w={canvas_width}, h={canvas_height}")
+            
+            # Read pixels directly from the OpenGL framebuffer
+            pixels = glReadPixels(canvas_x, gl_y, canvas_width, canvas_height, GL_RGBA, GL_UNSIGNED_BYTE)
+            
+            # Convert to numpy array
+            pixel_array = np.frombuffer(pixels, dtype=np.uint8)
+            pixel_array = pixel_array.reshape((canvas_height, canvas_width, 4))
+            
+            # Flip vertically (OpenGL has origin at bottom-left, images at top-left)
+            pixel_array = np.flipud(pixel_array)
+            
+            # Convert RGBA to RGB with white background
+            rgb_array = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
+            alpha = pixel_array[:, :, 3:4] / 255.0
+            
+            # Blend with white background
+            rgb_array[:, :, 0] = pixel_array[:, :, 0] * alpha[:, :, 0] + 255 * (1 - alpha[:, :, 0])
+            rgb_array[:, :, 1] = pixel_array[:, :, 1] * alpha[:, :, 0] + 255 * (1 - alpha[:, :, 0])
+            rgb_array[:, :, 2] = pixel_array[:, :, 2] * alpha[:, :, 0] + 255 * (1 - alpha[:, :, 0])
+            
+            # Create PIL image
+            image = Image.fromarray(rgb_array, 'RGB')
+            
+            # Apply scaling if requested
+            if scale_factor != 1:
+                new_width = canvas_width * scale_factor
+                new_height = canvas_height * scale_factor
+                image = image.resize((new_width, new_height), Image.LANCZOS)
+            
+            # Save the image
+            image.save(filename, 'PNG', optimize=True)
+            
+            print(f"Canvas screenshot exported successfully to: {filename}")
+            return True
+            
+        except Exception as e:
+            print(f"Screenshot export failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
