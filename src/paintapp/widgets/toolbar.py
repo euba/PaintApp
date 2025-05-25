@@ -33,7 +33,9 @@ class Toolbar(BoxLayout):
         self.canvas_widget = canvas_widget
         self.orientation = "horizontal"
         self.size_hint_y = None
-        self.height = 40
+        self.height = 50  # Increased height for better visibility
+        self.spacing = 5  # Add spacing between elements
+        self.padding = [5, 5, 5, 5]  # Add padding around the toolbar
 
         self._setup_toolbar()
 
@@ -50,9 +52,29 @@ class Toolbar(BoxLayout):
 
     def _add_color_section(self):
         """Add color selection buttons to the toolbar."""
+        # Color section container
+        color_section = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.5,  # Take up 50% of horizontal space
+            spacing=3
+        )
+
         # Color label
-        color_label = Label(text="Colors:", size_hint_x=None, width=60, height=40)
-        self.add_widget(color_label)
+        color_label = Label(
+            text="Colors:",
+            size_hint_x=0.15,  # 15% of the color section
+            text_size=(None, None),
+            halign="center",
+            valign="middle"
+        )
+        color_section.add_widget(color_label)
+
+        # Color buttons container
+        colors_container = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.85,  # 85% of the color section
+            spacing=2
+        )
 
         # Color buttons
         colors = Colors.get_palette()
@@ -60,7 +82,10 @@ class Toolbar(BoxLayout):
 
         for i, color in enumerate(colors):
             color_btn = ColorButton(
-                color=color, group="colors", size_hint_x=None, width=30, height=30
+                color=color,
+                group="colors",
+                size_hint_x=1.0 / len(colors),  # Equal distribution
+                size_hint_y=1.0
             )
             color_btn.bind(on_press=self._on_color_selected)
 
@@ -69,17 +94,36 @@ class Toolbar(BoxLayout):
                 color_btn.state = "down"
 
             self.color_buttons.append(color_btn)
-            self.add_widget(color_btn)
+            colors_container.add_widget(color_btn)
+
+        color_section.add_widget(colors_container)
+        self.add_widget(color_section)
 
     def _add_line_width_section(self):
         """Add line width selection buttons to the toolbar."""
-        # Separator
-        separator = Label(text="|", size_hint_x=None, width=20)
-        self.add_widget(separator)
+        # Line width section container
+        width_section = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.35,  # Take up 35% of horizontal space
+            spacing=3
+        )
 
         # Line width label
-        width_label = Label(text="Width:", size_hint_x=None, width=50, height=40)
-        self.add_widget(width_label)
+        width_label = Label(
+            text="Width:",
+            size_hint_x=0.2,  # 20% of the width section
+            text_size=(None, None),
+            halign="center",
+            valign="middle"
+        )
+        width_section.add_widget(width_label)
+
+        # Line width buttons container
+        widths_container = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.8,  # 80% of the width section
+            spacing=2
+        )
 
         # Line width buttons
         width_map = LineWidths.get_width_map()
@@ -90,9 +134,8 @@ class Toolbar(BoxLayout):
                 width_name=name,
                 width_value=value,
                 group="widths",
-                size_hint_x=None,
-                width=80,
-                height=30,
+                size_hint_x=1.0 / len(width_map),  # Equal distribution
+                size_hint_y=1.0
             )
             width_btn.bind(on_press=self._on_width_selected)
 
@@ -101,22 +144,30 @@ class Toolbar(BoxLayout):
                 width_btn.state = "down"
 
             self.width_buttons.append(width_btn)
-            self.add_widget(width_btn)
+            widths_container.add_widget(width_btn)
+
+        width_section.add_widget(widths_container)
+        self.add_widget(width_section)
 
     def _add_action_buttons(self):
         """Add action buttons to the toolbar."""
-        # Separator
-        separator = Label(text="|", size_hint_x=None, width=20)
-        self.add_widget(separator)
+        # Action buttons section container
+        action_section = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.15,  # Take up 15% of horizontal space
+            spacing=3
+        )
 
         # Clear button
-        clear_btn = Button(text="Clear", size_hint_x=None, width=80, height=30)
+        clear_btn = Button(
+            text="Clear",
+            size_hint_x=1.0,  # Take full width of action section
+            size_hint_y=1.0
+        )
         clear_btn.bind(on_press=self._on_clear_pressed)
-        self.add_widget(clear_btn)
+        action_section.add_widget(clear_btn)
 
-        # Spacer to push everything to the left
-        spacer = Label(text="")
-        self.add_widget(spacer)
+        self.add_widget(action_section)
 
     def _on_color_selected(self, button):
         """
