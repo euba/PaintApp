@@ -549,45 +549,132 @@ class MyCanvas(Widget):
         """Create dashed line segments from a list of points."""
         lines = []
         
-        # Process points in pairs to create line segments
+        if len(points) < 4:  # Need at least 2 points (4 coordinates)
+            return lines
+        
+        # For free-drawn lines (many points), treat as continuous path
+        if len(points) > 4:
+            return self._create_dashed_continuous_path(points, dash_length, gap_length)
+        
+        # For simple lines (2 points), use the original method
+        x1, y1 = points[0], points[1]
+        x2, y2 = points[2], points[3]
+        
+        # Calculate line length and direction
+        dx = x2 - x1
+        dy = y2 - y1
+        line_length = math.sqrt(dx * dx + dy * dy)
+        
+        if line_length > 0:
+            # Normalize direction vector
+            dx_norm = dx / line_length
+            dy_norm = dy / line_length
+            
+            # Create dashed segments along this line
+            current_pos = 0
+            while current_pos < line_length:
+                # Calculate dash start and end positions
+                dash_start = current_pos
+                dash_end = min(current_pos + dash_length, line_length)
+                
+                # Calculate actual coordinates
+                start_x = x1 + dx_norm * dash_start
+                start_y = y1 + dy_norm * dash_start
+                end_x = x1 + dx_norm * dash_end
+                end_y = y1 + dy_norm * dash_end
+                
+                # Create the dash segment
+                dash_line = Line(
+                    points=[start_x, start_y, end_x, end_y],
+                    width=self.line_width
+                )
+                lines.append(dash_line)
+                
+                # Move to next dash (skip the gap)
+                current_pos += dash_length + gap_length
+        
+        return lines
+
+    def _create_dashed_continuous_path(self, points, dash_length, gap_length):
+        """Create dashed line segments along a continuous path with even distribution."""
+        lines = []
+        
+        # Calculate total path length and create distance markers
+        path_segments = []
+        total_length = 0
+        
         for i in range(0, len(points) - 2, 2):
             x1, y1 = points[i], points[i + 1]
             x2, y2 = points[i + 2], points[i + 3]
             
-            # Calculate line length and direction
             dx = x2 - x1
             dy = y2 - y1
-            line_length = math.sqrt(dx * dx + dy * dy)
+            segment_length = math.sqrt(dx * dx + dy * dy)
             
-            if line_length > 0:
-                # Normalize direction vector
-                dx_norm = dx / line_length
-                dy_norm = dy / line_length
-                
-                # Create dashed segments along this line
-                current_pos = 0
-                while current_pos < line_length:
-                    # Calculate dash start and end positions
-                    dash_start = current_pos
-                    dash_end = min(current_pos + dash_length, line_length)
-                    
-                    # Calculate actual coordinates
-                    start_x = x1 + dx_norm * dash_start
-                    start_y = y1 + dy_norm * dash_start
-                    end_x = x1 + dx_norm * dash_end
-                    end_y = y1 + dy_norm * dash_end
-                    
-                    # Create the dash segment
-                    dash_line = Line(
-                        points=[start_x, start_y, end_x, end_y],
-                        width=self.line_width
-                    )
-                    lines.append(dash_line)
-                    
-                    # Move to next dash (skip the gap)
-                    current_pos += dash_length + gap_length
+            if segment_length > 0:
+                path_segments.append({
+                    'start': (x1, y1),
+                    'end': (x2, y2),
+                    'length': segment_length,
+                    'start_distance': total_length,
+                    'end_distance': total_length + segment_length
+                })
+                total_length += segment_length
+        
+        if total_length == 0:
+            return lines
+        
+        # Create dashes along the total path length
+        current_distance = 0
+        dash_cycle = dash_length + gap_length
+        
+        while current_distance < total_length:
+            dash_start = current_distance
+            dash_end = min(current_distance + dash_length, total_length)
+            
+            # Find the segments that contain this dash
+            dash_points = []
+            
+            # Get start point
+            start_point = self._get_point_at_distance(path_segments, dash_start)
+            if start_point:
+                dash_points.extend(start_point)
+            
+            # Get end point
+            end_point = self._get_point_at_distance(path_segments, dash_end)
+            if end_point:
+                dash_points.extend(end_point)
+            
+            # Create the dash if we have valid points
+            if len(dash_points) >= 4:
+                dash_line = Line(
+                    points=dash_points,
+                    width=self.line_width
+                )
+                lines.append(dash_line)
+            
+            # Move to next dash
+            current_distance += dash_cycle
         
         return lines
+
+    def _get_point_at_distance(self, path_segments, target_distance):
+        """Get the x,y coordinates at a specific distance along the path."""
+        for segment in path_segments:
+            if segment['start_distance'] <= target_distance <= segment['end_distance']:
+                # Calculate position within this segment
+                segment_progress = (target_distance - segment['start_distance']) / segment['length']
+                
+                x1, y1 = segment['start']
+                x2, y2 = segment['end']
+                
+                # Linear interpolation
+                x = x1 + (x2 - x1) * segment_progress
+                y = y1 + (y2 - y1) * segment_progress
+                
+                return [x, y]
+        
+        return None
     
     def _create_dashed_rectangle(self, rect, dash_length, gap_length):
         """Create dashed rectangle by creating dashed lines for each side."""
@@ -1209,188 +1296,233 @@ class MyCanvas(Widget):
         return len(self.redo_stack) > 0
 
     def _export_dashed_line_segments(self, points, dash_length, gap_length, draw, rgb_color, width_px, canvas_height):
-        """Create dashed line segments for export."""
+        """Create high-quality dashed line segments for export."""
+        # Ensure minimum segment length to avoid artifacts
+        min_segment_length = 2.0
+        
         # Process points in pairs to create line segments
         for i in range(0, len(points) - 2, 2):
-            x1, y1 = points[i], canvas_height - points[i + 1]  # Flip Y coordinate
-            x2, y2 = points[i + 2], canvas_height - points[i + 3]  # Flip Y coordinate
+            x1, y1 = float(points[i]), float(canvas_height - points[i + 1])  # Flip Y coordinate
+            x2, y2 = float(points[i + 2]), float(canvas_height - points[i + 3])  # Flip Y coordinate
             
             # Calculate line length and direction
             dx = x2 - x1
             dy = y2 - y1
             line_length = math.sqrt(dx * dx + dy * dy)
             
-            if line_length > 0:
-                # Normalize direction vector
-                dx_norm = dx / line_length
-                dy_norm = dy / line_length
+            # Skip very short segments to avoid artifacts
+            if line_length < min_segment_length:
+                continue
                 
-                # Create dashed segments along this line
-                current_pos = 0
-                while current_pos < line_length:
-                    # Calculate dash start and end positions
-                    dash_start = current_pos
-                    dash_end = min(current_pos + dash_length, line_length)
-                    
-                    # Calculate actual coordinates
+            # Normalize direction vector
+            dx_norm = dx / line_length
+            dy_norm = dy / line_length
+            
+            # Create dashed segments along this line
+            current_pos = 0.0
+            while current_pos < line_length:
+                # Calculate dash start and end positions
+                dash_start = current_pos
+                dash_end = min(current_pos + dash_length, line_length)
+                
+                # Only draw if dash segment is long enough
+                if dash_end - dash_start >= min_segment_length:
+                    # Calculate actual coordinates with sub-pixel precision
                     start_x = x1 + dx_norm * dash_start
                     start_y = y1 + dy_norm * dash_start
                     end_x = x1 + dx_norm * dash_end
                     end_y = y1 + dy_norm * dash_end
                     
-                    # Draw the dash segment
-                    draw.line([(start_x, start_y), (end_x, end_y)], fill=rgb_color, width=int(width_px))
-                    
-                    # Move to next dash (skip the gap)
-                    current_pos += dash_length + gap_length
+                    # Draw the dash segment with proper line caps
+                    draw.line([(start_x, start_y), (end_x, end_y)], fill=rgb_color, width=max(1, int(round(width_px))))
+                
+                # Move to next dash (skip the gap)
+                current_pos += dash_length + gap_length
 
-    def export_to_png(self, filename):
+    def _export_smooth_line_segments(self, points, draw, rgb_color, width_px, canvas_height):
+        """Create high-quality smooth line segments for export."""
+        min_segment_length = 1.0
+        
+        # Process points in pairs to create line segments
+        for i in range(0, len(points) - 2, 2):
+            x1, y1 = float(points[i]), float(canvas_height - points[i + 1])
+            x2, y2 = float(points[i + 2]), float(canvas_height - points[i + 3])
+            
+            # Calculate line length
+            dx = x2 - x1
+            dy = y2 - y1
+            line_length = math.sqrt(dx * dx + dy * dy)
+            
+            # Skip very short segments to avoid artifacts
+            if line_length < min_segment_length:
+                continue
+            
+            # Draw line segment with proper width
+            draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=max(1, int(round(width_px))))
+
+    def _export_shape_outline(self, points, draw, rgb_color, width_px, canvas_height, is_dashed=False, dash_length=None, gap_length=None):
+        """Export shape outline with consistent quality."""
+        if not points or len(points) < 4:
+            return
+            
+        # Scale and flip coordinates
+        scaled_points = []
+        for i in range(0, len(points), 2):
+            if i + 1 < len(points):
+                x = float(points[i])
+                y = float(canvas_height - points[i + 1])
+                scaled_points.extend([x, y])
+        
+        if is_dashed and dash_length and gap_length:
+            self._export_dashed_line_segments(scaled_points, dash_length, gap_length, draw, rgb_color, width_px, canvas_height)
+        else:
+            self._export_smooth_line_segments(scaled_points, draw, rgb_color, width_px, canvas_height)
+
+    def export_to_png(self, filename, scale_factor=2):
         """
-        Export the canvas to a PNG file with white background.
+        Export the canvas to a high-quality PNG file with white background.
         
         Args:
             filename (str): The path where to save the PNG file
+            scale_factor (int): Scaling factor for higher resolution export (default: 2x)
             
         Returns:
             bool: True if export was successful, False otherwise
         """
         try:
-            from PIL import Image, ImageDraw
+            from PIL import Image, ImageDraw, ImageFont
             
-            # Create a white background image
-            width, height = int(self.size[0]), int(self.size[1])
-            img = Image.new('RGB', (width, height), (255, 255, 255))
+            # Calculate high-resolution dimensions
+            base_width, base_height = int(self.size[0]), int(self.size[1])
+            export_width = base_width * scale_factor
+            export_height = base_height * scale_factor
+            
+            # Create a high-resolution white background image with anti-aliasing
+            img = Image.new('RGBA', (export_width, export_height), (255, 255, 255, 255))
             draw = ImageDraw.Draw(img)
             
             # Draw all entries from history
             for entry in self.drawing_history:
                 try:
                     color = entry.get("color", (0, 0, 0, 1))
-                    # Convert RGBA to RGB for PIL
-                    rgb_color = (int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
+                    # Convert RGBA to RGB with proper alpha handling
+                    alpha = int(color[3] * 255) if len(color) > 3 else 255
+                    rgb_color = (
+                        int(color[0] * 255), 
+                        int(color[1] * 255), 
+                        int(color[2] * 255),
+                        alpha
+                    )
                     
                     entry_type = entry.get("type", "unknown")
-                    width_px = entry.get("width", 2)
+                    base_width_px = entry.get("width", 2)
+                    # Scale line width for high-resolution export
+                    width_px = max(1, int(round(base_width_px * scale_factor)))
                     style = entry.get("style", "solid")
                     
                     if entry_type in ["line_start", "line_complete"] and "points" in entry:
-                        # Draw line
+                        # Draw freehand line
                         points = entry["points"]
                         if len(points) >= 4:
+                            # Scale points for high-resolution export
+                            scaled_points = [p * scale_factor for p in points]
+                            
                             if style == LineStyles.DASHED:
-                                # Draw dashed line
-                                dash_length = max(width_px * 3, 15)
+                                # Draw dashed line with scaled parameters
+                                dash_length = max(base_width_px * 3, 15) * scale_factor
                                 gap_length = dash_length * 1.5
-                                self._export_dashed_line_segments(points, dash_length, gap_length, draw, rgb_color, width_px, height)
+                                self._export_dashed_line_segments(
+                                    scaled_points, dash_length, gap_length, 
+                                    draw, rgb_color, width_px, export_height
+                                )
                             else:
-                                # Draw solid line
-                                for j in range(0, len(points) - 2, 2):
-                                    x1, y1 = points[j], height - points[j + 1]  # Flip Y coordinate
-                                    x2, y2 = points[j + 2], height - points[j + 3]  # Flip Y coordinate
-                                    draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=int(width_px))
+                                # Draw solid line with anti-aliasing
+                                self._export_smooth_line_segments(
+                                    scaled_points, draw, rgb_color, width_px, export_height
+                                )
                                 
                     elif entry_type == "shape_complete":
-                        # Draw shape
+                        # Draw shapes with consistent quality
                         mode = entry.get("drawing_mode", "line")
+                        is_dashed = style == LineStyles.DASHED
+                        dash_length = max(base_width_px * 3, 15) * scale_factor if is_dashed else None
+                        gap_length = dash_length * 1.5 if is_dashed else None
                         
-                        if style == LineStyles.DASHED:
-                            # Draw dashed shapes
-                            dash_length = max(width_px * 3, 15)
-                            gap_length = dash_length * 1.5
+                        if mode == "rectangle" and "rect_bounds" in entry:
+                            # Draw rectangle outline
+                            x, y, w, h = entry["rect_bounds"]
+                            # Scale rectangle bounds
+                            x, y, w, h = x * scale_factor, y * scale_factor, w * scale_factor, h * scale_factor
                             
-                            if mode == "rectangle" and "rect_bounds" in entry:
-                                # Draw dashed rectangle by creating points for each side
-                                x, y, w, h = entry["rect_bounds"]
-                                # Create points for rectangle outline
-                                rect_points = [
-                                    x, y + h, x + w, y + h,  # Top side
-                                    x + w, y + h, x + w, y,  # Right side
-                                    x + w, y, x, y,          # Bottom side
-                                    x, y, x, y + h           # Left side
-                                ]
-                                self._export_dashed_line_segments(rect_points, dash_length, gap_length, draw, rgb_color, width_px, height)
+                            # Create points for rectangle outline (clockwise)
+                            rect_points = [
+                                x, y + h, x + w, y + h,  # Top side
+                                x + w, y + h, x + w, y,  # Right side  
+                                x + w, y, x, y,          # Bottom side
+                                x, y, x, y + h           # Left side
+                            ]
+                            self._export_shape_outline(rect_points, draw, rgb_color, width_px, export_height, is_dashed, dash_length, gap_length)
+                            
+                        elif mode in ["line", "straight_line"] and "points" in entry:
+                            # Draw straight line
+                            points = entry["points"]
+                            if len(points) >= 4:
+                                scaled_points = [p * scale_factor for p in points]
+                                self._export_shape_outline(scaled_points, draw, rgb_color, width_px, export_height, is_dashed, dash_length, gap_length)
                                 
-                            elif mode in ["line", "straight_line"] and "points" in entry:
-                                points = entry["points"]
-                                if len(points) >= 4:
-                                    self._export_dashed_line_segments(points, dash_length, gap_length, draw, rgb_color, width_px, height)
-                                    
-                            elif mode == "circle" and "circle_points" in entry:
-                                # Draw dashed circle
-                                points = entry["circle_points"]
-                                if len(points) >= 4:
-                                    self._export_dashed_line_segments(points, dash_length, gap_length, draw, rgb_color, width_px, height)
-                                    
-                            elif mode == "triangle" and "points" in entry:
-                                # Draw dashed triangle
-                                points = entry["points"]
-                                if len(points) >= 6:
-                                    self._export_dashed_line_segments(points, dash_length, gap_length, draw, rgb_color, width_px, height)
-                        else:
-                            # Draw solid shapes
-                            if mode == "rectangle" and "rect_bounds" in entry:
-                                x, y, w, h = entry["rect_bounds"]
-                                # Flip Y coordinate for PIL
-                                y = height - y - h
-                                draw.rectangle([x, y, x + w, y + h], outline=rgb_color, width=int(width_px))
+                        elif mode == "circle" and "circle_points" in entry:
+                            # Draw circle outline
+                            points = entry["circle_points"]
+                            if len(points) >= 4:
+                                scaled_points = [p * scale_factor for p in points]
+                                self._export_shape_outline(scaled_points, draw, rgb_color, width_px, export_height, is_dashed, dash_length, gap_length)
                                 
-                            elif mode in ["line", "straight_line"] and "points" in entry:
-                                points = entry["points"]
-                                if len(points) >= 4:
-                                    x1, y1, x2, y2 = points[0], height - points[1], points[2], height - points[3]
-                                    draw.line([(x1, y1), (x2, y2)], fill=rgb_color, width=int(width_px))
-                                    
-                            elif mode == "circle" and "circle_points" in entry:
-                                # Draw circle as polygon
-                                points = entry["circle_points"]
-                                if len(points) >= 4:
-                                    # Convert points and flip Y coordinates
-                                    circle_coords = []
-                                    for j in range(0, len(points), 2):
-                                        if j + 1 < len(points):
-                                            x, y = points[j], height - points[j + 1]
-                                            circle_coords.append((x, y))
-                                    if len(circle_coords) > 2:
-                                        # Draw as polygon outline
-                                        for k in range(len(circle_coords)):
-                                            start = circle_coords[k]
-                                            end = circle_coords[(k + 1) % len(circle_coords)]
-                                            draw.line([start, end], fill=rgb_color, width=int(width_px))
-                                            
-                            elif mode == "triangle" and "points" in entry:
-                                # Draw triangle
-                                points = entry["points"]
-                                if len(points) >= 6:
-                                    # Convert points and flip Y coordinates
-                                    triangle_coords = []
-                                    for j in range(0, min(6, len(points)), 2):
-                                        if j + 1 < len(points):
-                                            x, y = points[j], height - points[j + 1]
-                                            triangle_coords.append((x, y))
-                                    if len(triangle_coords) >= 3:
-                                        # Draw triangle outline
-                                        for k in range(len(triangle_coords)):
-                                            start = triangle_coords[k]
-                                            end = triangle_coords[(k + 1) % len(triangle_coords)]
-                                            draw.line([start, end], fill=rgb_color, width=int(width_px))
+                        elif mode == "triangle" and "points" in entry:
+                            # Draw triangle outline
+                            points = entry["points"]
+                            if len(points) >= 6:
+                                scaled_points = [p * scale_factor for p in points]
+                                self._export_shape_outline(scaled_points, draw, rgb_color, width_px, export_height, is_dashed, dash_length, gap_length)
                                         
                     elif entry_type == "text_complete":
-                        # Draw text (simplified - just draw a text placeholder)
+                        # Draw text with proper scaling and positioning
                         text = entry.get("text", "")
                         pos = entry.get("pos", (0, 0))
+                        font_size = entry.get("font_size", 24)
+                        
                         if text and pos:
-                            # For now, just draw a small rectangle to indicate text location
-                            # Full text rendering would require font handling in PIL
-                            x, y = pos[0], height - pos[1] - 20  # Flip Y and adjust for text height
-                            text_width = len(text) * 8  # Rough estimate
-                            draw.rectangle([x, y, x + text_width, y + 20], outline=rgb_color, width=1)
+                            # Scale position and font size
+                            x, y = pos[0] * scale_factor, (base_height - pos[1]) * scale_factor
+                            scaled_font_size = max(12, int(font_size * scale_factor))
+                            
+                            try:
+                                # Try to use a system font for better text rendering
+                                font = ImageFont.truetype("Arial.ttf", scaled_font_size)
+                            except (OSError, IOError):
+                                try:
+                                    # Fallback to default font
+                                    font = ImageFont.load_default()
+                                except:
+                                    # If all else fails, draw a text placeholder rectangle
+                                    text_width = len(text) * (scaled_font_size // 2)
+                                    text_height = scaled_font_size
+                                    draw.rectangle([x, y - text_height, x + text_width, y], 
+                                                 outline=rgb_color, width=max(1, scale_factor))
+                                    continue
+                            
+                            # Draw the actual text
+                            draw.text((x, y - scaled_font_size), text, fill=rgb_color, font=font)
                         
                 except Exception as e:
                     print(f"Warning: Skipping drawing entry during export: {e}")
                     continue
             
-            # Save the image
-            img.save(filename, 'PNG')
+            # Convert to RGB for final output (removes alpha channel)
+            final_img = Image.new('RGB', (export_width, export_height), (255, 255, 255))
+            final_img.paste(img, (0, 0), img)
+            
+            # Save with high quality settings
+            final_img.save(filename, 'PNG', optimize=True, compress_level=6)
             return True
             
         except Exception as e:

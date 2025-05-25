@@ -7,11 +7,13 @@ and other painting tools.
 
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.label import Label
 from kivy.uix.filechooser import FileChooserIconView
 from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
 import os
+from datetime import datetime
 
 from .buttons import ColorButton, LineWidthButton, DrawingModeButton, LineStyleButton
 from ..utils.constants import Colors, LineWidths, DrawingModes, LineStyles
@@ -430,8 +432,12 @@ class Toolbar(BoxLayout):
         )
         filename_layout.add_widget(filename_label)
         
+        # Generate default filename with current date
+        current_date = datetime.now().strftime("%d-%m-%Y")
+        default_filename = f"{current_date}_scratch.png"
+        
         filename_input = TextInput(
-            text='my_drawing.png',
+            text=default_filename,
             multiline=False,
             size_hint_y=None,
             height=70,
@@ -440,6 +446,46 @@ class Toolbar(BoxLayout):
         )
         filename_layout.add_widget(filename_input)
         content.add_widget(filename_layout)
+        
+        # Quality selection with bigger font
+        quality_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=80, spacing=25)
+        
+        quality_label = Label(
+            text='Quality:',
+            size_hint_x=None,
+            width=180,
+            font_size=28,
+            text_size=(180, None),
+            halign='left',
+            valign='middle'
+        )
+        quality_layout.add_widget(quality_label)
+        
+        # Quality buttons
+        quality_buttons_layout = BoxLayout(orientation='horizontal', spacing=10)
+        
+        standard_btn = ToggleButton(
+            text='Standard (1x)',
+            group='quality',
+            state='down',  # Default selection
+            font_size=24
+        )
+        high_btn = ToggleButton(
+            text='High (2x)',
+            group='quality',
+            font_size=24
+        )
+        ultra_btn = ToggleButton(
+            text='Ultra (4x)',
+            group='quality',
+            font_size=24
+        )
+        
+        quality_buttons_layout.add_widget(standard_btn)
+        quality_buttons_layout.add_widget(high_btn)
+        quality_buttons_layout.add_widget(ultra_btn)
+        quality_layout.add_widget(quality_buttons_layout)
+        content.add_widget(quality_layout)
         
         # Buttons with much bigger font
         button_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=100, spacing=25)
@@ -481,17 +527,27 @@ class Toolbar(BoxLayout):
                 
             filename = filename_input.text.strip()
             if not filename:
-                filename = 'my_drawing.png'
+                # Fallback to date-based filename if empty
+                current_date = datetime.now().strftime("%d-%m-%Y")
+                filename = f"{current_date}_scratch.png"
             elif not filename.lower().endswith('.png'):
                 filename += '.png'
                 
             full_path = os.path.join(folder_path, filename)
             
-            # Export the canvas
+            # Determine scale factor based on quality selection
+            scale_factor = 1  # Default
+            if high_btn.state == 'down':
+                scale_factor = 2
+            elif ultra_btn.state == 'down':
+                scale_factor = 4
+            
+            # Export the canvas with selected quality
             if self.canvas_widget and hasattr(self.canvas_widget, 'export_to_png'):
-                success = self.canvas_widget.export_to_png(full_path)
+                success = self.canvas_widget.export_to_png(full_path, scale_factor)
                 if success:
-                    print(f"Canvas exported successfully to: {full_path}")
+                    quality_text = f"{scale_factor}x" if scale_factor > 1 else "standard"
+                    print(f"Canvas exported successfully to: {full_path} (Quality: {quality_text})")
                 else:
                     print(f"Failed to export canvas to: {full_path}")
             
