@@ -8,6 +8,10 @@ and other painting tools.
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.uix.filechooser import FileChooserIconView
+from kivy.uix.popup import Popup
+from kivy.uix.textinput import TextInput
+import os
 
 from .buttons import ColorButton, LineWidthButton, DrawingModeButton
 from ..utils.constants import Colors, LineWidths, DrawingModes
@@ -41,7 +45,10 @@ class Toolbar(BoxLayout):
 
     def _setup_toolbar(self):
         """Set up the toolbar with all controls."""
-        # Drawing mode section (new)
+        # Export button section (far left)
+        self._add_export_section()
+
+        # Drawing mode section
         self._add_drawing_mode_section()
 
         # Color selection section
@@ -53,12 +60,33 @@ class Toolbar(BoxLayout):
         # Action buttons section
         self._add_action_buttons()
 
+    def _add_export_section(self):
+        """Add export button to the toolbar."""
+        # Export section container
+        export_section = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.10,  # 10% of horizontal space for export button
+            spacing=3
+        )
+
+        # Export button with bold text
+        export_btn = Button(
+            text="[b]Export[/b]",
+            markup=True,
+            size_hint_x=1.0,
+            size_hint_y=1.0
+        )
+        export_btn.bind(on_press=self._on_export_pressed)
+        export_section.add_widget(export_btn)
+
+        self.add_widget(export_section)
+
     def _add_drawing_mode_section(self):
         """Add drawing mode selection buttons to the toolbar."""
         # Drawing mode section container
         mode_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.25,  # Take up 25% of horizontal space
+            size_hint_x=0.22,  # Reduced from 25% to make room for export button
             spacing=3
         )
 
@@ -107,7 +135,7 @@ class Toolbar(BoxLayout):
         # Color section container
         color_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.31,  # Reduced to accommodate larger action section (25+23+23=71, so 29% left for colors)
+            size_hint_x=0.25,  # Reduced to accommodate new spacer
             spacing=3
         )
 
@@ -150,8 +178,12 @@ class Toolbar(BoxLayout):
 
         color_section.add_widget(colors_container)
         
-        # Add spacer to center the color buttons
-        spacer = Label(text="", size_hint_x=0.1)  # Reduced from 20% to 10% to bring closer to line width
+        # Add invisible spacer to center the color buttons
+        spacer = Label(
+            text="", 
+            size_hint_x=0.1,
+            color=(0, 0, 0, 0)  # Transparent text
+        )
         color_section.add_widget(spacer)
         
         self.add_widget(color_section)
@@ -161,7 +193,7 @@ class Toolbar(BoxLayout):
         # Line width section container
         width_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.23,  # Reduced from 25% to 23% to bring closer to colors
+            size_hint_x=0.17,  # Further reduced to accommodate new spacer
             spacing=3
         )
 
@@ -206,45 +238,69 @@ class Toolbar(BoxLayout):
         width_section.add_widget(widths_container)
         self.add_widget(width_section)
 
+        # Add invisible spacer between line width and undo/redo buttons
+        spacer_width_to_undo = Label(
+            text="", 
+            size_hint_x=0.08,
+            color=(0, 0, 0, 0)  # Transparent text
+        )
+        self.add_widget(spacer_width_to_undo)
+
     def _add_action_buttons(self):
         """Add action buttons to the toolbar."""
-        # Remove spacer since action section is now same size as line width section
-
-        # Action buttons section container
-        action_section = BoxLayout(
+        # Undo/Redo section
+        undo_redo_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.23,  # Match the line width section size
-            spacing=2  # Match line width section spacing
+            size_hint_x=0.15,  # Smaller section for undo/redo
+            spacing=2
         )
 
         # Undo button
         undo_btn = Button(
             text="<-",  # Back arrow
-            size_hint_x=0.333,  # Equal size like line width buttons
+            size_hint_x=0.5,  # Half of undo/redo section
             size_hint_y=1.0
         )
         undo_btn.bind(on_press=self._on_undo_pressed)
-        action_section.add_widget(undo_btn)
+        undo_redo_section.add_widget(undo_btn)
 
         # Redo button
         redo_btn = Button(
             text="->",  # Forward arrow
-            size_hint_x=0.333,  # Equal size like line width buttons
+            size_hint_x=0.5,  # Half of undo/redo section
             size_hint_y=1.0
         )
         redo_btn.bind(on_press=self._on_redo_pressed)
-        action_section.add_widget(redo_btn)
+        undo_redo_section.add_widget(redo_btn)
 
-        # Clear button (same size as undo/redo)
+        self.add_widget(undo_redo_section)
+
+        # Invisible spacer between undo/redo and clear button
+        spacer = Label(
+            text="", 
+            size_hint_x=0.05,
+            color=(0, 0, 0, 0)  # Transparent text
+        )
+        self.add_widget(spacer)
+
+        # Clear button section (same size as export)
+        clear_section = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=0.10,  # Same size as export button
+            spacing=3
+        )
+
+        # Clear button with bold text (same size as export)
         clear_btn = Button(
-            text="Clear",
-            size_hint_x=0.334,  # Equal size like line width buttons
+            text="[b]Clear[/b]",
+            markup=True,
+            size_hint_x=1.0,
             size_hint_y=1.0
         )
         clear_btn.bind(on_press=self._on_clear_pressed)
-        action_section.add_widget(clear_btn)
+        clear_section.add_widget(clear_btn)
 
-        self.add_widget(action_section)
+        self.add_widget(clear_section)
 
     def _on_color_selected(self, button):
         """
@@ -308,6 +364,114 @@ class Toolbar(BoxLayout):
         """
         if self.canvas_widget and hasattr(self.canvas_widget, "clear_screen"):
             self.canvas_widget.clear_screen()
+
+    def _on_export_pressed(self, button):
+        """
+        Handle export button press.
+
+        Args:
+            button (Button): The export button
+        """
+        self._show_export_dialog()
+
+    def _show_export_dialog(self):
+        """Show file dialog for exporting canvas to PNG."""
+        # Create the file chooser content
+        content = BoxLayout(orientation='vertical', spacing=15, padding=20)
+        
+        # File chooser with bigger font
+        filechooser = FileChooserIconView(
+            path=os.path.expanduser('~/Desktop'),  # Start at Desktop
+            dirselect=False,
+            filters=['*.png']
+        )
+        content.add_widget(filechooser)
+        
+        # Filename input with much bigger font and better spacing
+        filename_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=100, spacing=25)
+        
+        filename_label = Label(
+            text='Filename:',
+            size_hint_x=None,
+            width=180,
+            font_size=32,
+            text_size=(180, None),
+            halign='left',
+            valign='middle'
+        )
+        filename_layout.add_widget(filename_label)
+        
+        filename_input = TextInput(
+            text='my_drawing.png',
+            multiline=False,
+            size_hint_y=None,
+            height=70,
+            font_size=28,
+            padding=[20, 20]
+        )
+        filename_layout.add_widget(filename_input)
+        content.add_widget(filename_layout)
+        
+        # Buttons with much bigger font
+        button_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=100, spacing=25)
+        
+        cancel_btn = Button(
+            text='Cancel',
+            size_hint_x=0.5,
+            font_size=32
+        )
+        save_btn = Button(
+            text='Save',
+            size_hint_x=0.5,
+            font_size=32
+        )
+        
+        button_layout.add_widget(cancel_btn)
+        button_layout.add_widget(save_btn)
+        content.add_widget(button_layout)
+        
+        # Create popup with much bigger title font
+        popup = Popup(
+            title='Export Canvas to PNG',
+            content=content,
+            size_hint=(0.95, 0.95),
+            auto_dismiss=False,
+            title_size=36
+        )
+        
+        # Button handlers
+        def on_cancel(instance):
+            popup.dismiss()
+            
+        def on_save(instance):
+            # Get selected path and filename
+            if filechooser.selection:
+                folder_path = os.path.dirname(filechooser.selection[0])
+            else:
+                folder_path = filechooser.path
+                
+            filename = filename_input.text.strip()
+            if not filename:
+                filename = 'my_drawing.png'
+            elif not filename.lower().endswith('.png'):
+                filename += '.png'
+                
+            full_path = os.path.join(folder_path, filename)
+            
+            # Export the canvas
+            if self.canvas_widget and hasattr(self.canvas_widget, 'export_to_png'):
+                success = self.canvas_widget.export_to_png(full_path)
+                if success:
+                    print(f"Canvas exported successfully to: {full_path}")
+                else:
+                    print(f"Failed to export canvas to: {full_path}")
+            
+            popup.dismiss()
+        
+        cancel_btn.bind(on_press=on_cancel)
+        save_btn.bind(on_press=on_save)
+        
+        popup.open()
 
     def set_canvas_widget(self, canvas_widget):
         """
