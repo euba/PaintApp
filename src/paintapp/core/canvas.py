@@ -29,10 +29,79 @@ class MyCanvas(Widget):
 
         # Drawing history for potential undo functionality
         self.drawing_history = []
+        
+        # Track canvas size for scaling calculations
+        self.last_canvas_size = None
+        self.is_resizing = False
 
         # Set initial drawing color
         with self.canvas:
             Color(*self.current_color)
+        
+        # Bind to size changes to handle window resizing
+        self.bind(size=self.on_size_change)
+        self.bind(pos=self.on_pos_change)
+
+    def on_size_change(self, instance, size):
+        """Handle canvas size changes when window is resized."""
+        if self.last_canvas_size is None:
+            # First time setting size, just store it
+            self.last_canvas_size = size
+            return
+            
+        # Calculate scaling factors
+        old_width, old_height = self.last_canvas_size
+        new_width, new_height = size
+        
+        if old_width <= 0 or old_height <= 0 or new_width <= 0 or new_height <= 0:
+            return
+            
+        scale_x = new_width / old_width
+        scale_y = new_height / old_height
+        
+        # Only scale if there's a significant change and we have drawings
+        if (abs(scale_x - 1.0) > 0.01 or abs(scale_y - 1.0) > 0.01) and self.drawing_history:
+            self.is_resizing = True
+            self._scale_all_drawings(scale_x, scale_y)
+            self.is_resizing = False
+            
+        # Update the stored canvas size
+        self.last_canvas_size = size
+
+    def on_pos_change(self, instance, pos):
+        """Handle canvas position changes when window is resized."""
+        # This method can be extended to handle any position-dependent operations
+        pass
+
+    def _scale_all_drawings(self, scale_x, scale_y):
+        """Scale all drawings by the given factors."""
+        # Clear the canvas
+        self.canvas.clear()
+        
+        # Redraw all lines with scaled coordinates
+        for entry in self.drawing_history:
+            if entry["type"] in ["line_start", "line_complete"] and "points" in entry:
+                # Scale the points
+                scaled_points = []
+                points = entry["points"]
+                for i in range(0, len(points), 2):
+                    if i + 1 < len(points):
+                        x, y = points[i], points[i + 1]
+                        scaled_x = x * scale_x
+                        scaled_y = y * scale_y
+                        scaled_points.extend([scaled_x, scaled_y])
+                
+                # Update the stored points
+                entry["points"] = scaled_points
+                
+                # Redraw the line with scaled coordinates
+                with self.canvas:
+                    Color(*entry["color"])
+                    # Scale line width proportionally (use average of scale factors)
+                    scaled_width = entry["width"] * ((scale_x + scale_y) / 2)
+                    new_line = Line(points=scaled_points, width=scaled_width)
+                    entry["line"] = new_line
+                    entry["width"] = scaled_width
 
     def on_touch_down(self, touch):
         """
@@ -48,6 +117,14 @@ class MyCanvas(Widget):
         for widget in self.children:
             if widget.on_touch_down(touch):
                 return True
+
+        # Only start drawing if the touch is within the canvas bounds
+        if not self.collide_point(*touch.pos):
+            return False
+
+        # Initialize canvas size tracking if needed
+        if self.last_canvas_size is None:
+            self.last_canvas_size = self.size
 
         # Start a new line at the touch position
         with self.canvas:
@@ -83,8 +160,8 @@ class MyCanvas(Widget):
         Returns:
             bool: True if touch was handled, False otherwise
         """
-        # Only draw if we're not in the toolbar area (bottom 40 pixels)
-        if touch.y >= 40 and "line" in touch.ud:
+        # Only draw if the touch is within the canvas bounds
+        if self.collide_point(*touch.pos) and "line" in touch.ud:
             # Add the current touch position to the line
             touch.ud["line"].points += [touch.x, touch.y]
 
@@ -167,8 +244,9 @@ class MyCanvas(Widget):
         for widget in saved_widgets:
             self.add_widget(widget)
 
-        # Clear drawing history
+        # Clear drawing history and reset size tracking
         self.drawing_history.clear()
+        self.last_canvas_size = self.size if self.size != [100, 100] else None
 
     def get_drawing_bounds(self):
         """

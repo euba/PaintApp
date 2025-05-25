@@ -30,11 +30,15 @@ class MainLayout(BoxLayout):
 
     def _setup_layout(self):
         """Set up the main layout with canvas and toolbar."""
-        # Create the drawing canvas
+        # Create the drawing canvas with proper scaling
         self.canvas_widget = MyCanvas()
+        # Canvas should take up all available space except toolbar
+        self.canvas_widget.size_hint = (1, 1)  # Full width, flexible height
 
         # Create the toolbar and link it to the canvas
         self.toolbar = Toolbar(canvas_widget=self.canvas_widget)
+        # Toolbar has fixed height but scales width
+        self.toolbar.size_hint = (1, None)  # Full width, fixed height
 
         # Add widgets to the layout
         # Canvas takes up most of the space

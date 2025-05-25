@@ -21,7 +21,7 @@ class AppConfig:
     DEFAULT_COLOR = (0, 0, 0, 1)  # Black
 
     @classmethod
-    def setup_window(cls, width=None, height=None, resizable=False):
+    def setup_window(cls, width=None, height=None, resizable=True):
         """Configure the application window."""
         width = width or cls.DEFAULT_WIDTH
         height = height or cls.DEFAULT_HEIGHT
@@ -29,7 +29,9 @@ class AppConfig:
         Config.set("graphics", "width", str(width))
         Config.set("graphics", "height", str(height))
 
-        if not resizable:
+        if resizable:
+            Config.set("graphics", "resizable", "1")
+        else:
             Config.set("graphics", "resizable", "0")
 
         # Disable multitouch emulation with right-click

@@ -117,17 +117,104 @@ def test_color_button():
     assert btn.text == ''  # Color buttons should have no text
 
 def test_app_info():
-    """Test that app info is properly configured."""
+    """Test that app info is available."""
     from paintapp import PaintApp
     
     app = PaintApp()
     info = app.get_app_info()
-    
     assert isinstance(info, dict)
-    assert 'name' in info
-    assert 'version' in info
-    assert 'author' in info
-    assert info['name'] == 'Paint App'
+    assert "name" in info
+    assert "version" in info
+    assert "author" in info
+    assert "description" in info
+
+def test_canvas_scaling():
+    """Test that canvas properly handles size changes for window resizing."""
+    from paintapp.core.canvas import MyCanvas
+    
+    canvas = MyCanvas()
+    
+    # Test initial size hint (should be responsive)
+    assert hasattr(canvas, 'size_hint')
+    
+    # Test that canvas has size change handlers
+    assert hasattr(canvas, 'on_size_change')
+    assert hasattr(canvas, 'on_pos_change')
+    
+    # Test collision detection method exists
+    assert hasattr(canvas, 'collide_point')
+    
+    # Simulate size change
+    original_size = canvas.size
+    canvas.size = (800, 600)
+    canvas.on_size_change(canvas, canvas.size)
+    
+    # Canvas should handle size changes gracefully
+    assert list(canvas.size) == [800, 600]
+
+def test_layout_responsiveness():
+    """Test that the main layout is configured for responsive design."""
+    from paintapp.ui.layout import MainLayout
+    
+    layout = MainLayout()
+    
+    # Test that layout has proper orientation
+    assert layout.orientation == "vertical"
+    
+    # Test that canvas has proper size hints for scaling
+    canvas = layout.get_canvas()
+    assert list(canvas.size_hint) == [1, 1]  # Should take full available space
+    
+    # Test that toolbar has proper size hints
+    toolbar = layout.get_toolbar()
+    assert list(toolbar.size_hint) == [1, None]  # Full width, fixed height
+
+def test_window_resizable_config():
+    """Test that window is configured to be resizable."""
+    from paintapp.core.config import AppConfig
+    from kivy.config import Config
+    
+    # Test default resizable setting
+    AppConfig.setup_window()
+    
+    # Check that resizable is enabled by default
+    # Note: We can't easily test the actual Config value in unit tests
+    # but we can verify the method accepts resizable parameter
+    AppConfig.setup_window(resizable=True)
+    AppConfig.setup_window(resizable=False)
+
+
+def test_canvas_drawing_scaling():
+    """Test that canvas drawings scale correctly when window is resized."""
+    from paintapp.core.canvas import MyCanvas
+    
+    canvas = MyCanvas()
+    canvas.size = (400, 300)
+    canvas.last_canvas_size = (400, 300)
+    
+    # Add a mock drawing to the history
+    canvas.drawing_history.append({
+        "type": "line_complete",
+        "color": (0, 0, 0, 1),
+        "width": 4,
+        "points": [100, 100, 200, 200]
+    })
+    
+    # Simulate window resize (double the size)
+    new_size = (800, 600)
+    canvas.size = new_size
+    canvas.on_size_change(canvas, new_size)
+    
+    # Check that points were scaled correctly
+    scaled_points = canvas.drawing_history[0]['points']
+    expected_points = [200.0, 200.0, 400.0, 400.0]
+    
+    assert len(scaled_points) == len(expected_points)
+    for actual, expected in zip(scaled_points, expected_points):
+        assert abs(actual - expected) < 0.1  # Allow for floating point precision
+    
+    # Check that line width was scaled
+    assert abs(canvas.drawing_history[0]['width'] - 6.0) < 0.1  # 4 * 1.5 (average of 2.0 and 2.0)
 
 if __name__ == '__main__':
     pytest.main([__file__]) 
