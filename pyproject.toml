@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "paint-app"
+version = "1.0.0"
+description = "Simple Paint App built with Kivy"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    {name = "Aniket Thani"},
+]
+keywords = ["kivy", "paint", "drawing", "gui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+]
+
+dependencies = [
+    "kivy>=2.2.0",
+    "kivymd>=1.1.1",
+    "pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+build = [
+    "pyinstaller>=6.0.0",
+    "dmgbuild>=1.6.1",
+    "py2app>=0.28.6",
+]
+
+dev = [
+    "black",
+    "flake8",
+    "pytest",
+]
+
+[project.scripts]
+paint-app = "src.main:main"
+
+[project.gui-scripts]
+paint-app-gui = "src.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "README.md",
+    "pyproject.toml",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"] 
