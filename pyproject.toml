@@ -31,6 +31,7 @@ dependencies = [
     "numpy>=2.0.2",
     "pillow>=10.0.0",
     "pluggy>=1.6.0",
+    "packaging>=21.0",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +39,7 @@ build = [
     "pyinstaller>=6.0.0",
     "dmgbuild>=1.6.1",
     "py2app>=0.28.6",
+    "packaging>=21.0",
 ]
 
 dev = [
