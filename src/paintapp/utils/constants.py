@@ -8,18 +8,17 @@ Defines color palettes, line widths, and other application constants.
 class Colors:
     """Color constants for the paint application."""
 
-    # Basic colors (R, G, B, A)
+    # Basic colors (R, G, B, A) - 6 very distinct colors
     BLACK = (0, 0, 0, 1)
-    WHITE = (1, 1, 1, 1)
     RED = (1, 0, 0, 1)
-    GREEN = (0, 1, 0, 1)
+    GREEN = (0, 0.8, 0, 1)  # Slightly darker green for better visibility
     BLUE = (0, 0, 1, 1)
-    YELLOW = (1, 1, 0, 1)
+    ORANGE = (1, 0.5, 0, 1)  # Replaced yellow with orange
+    WHITE = (1, 1, 1, 1)
+
+    # Extended palette (kept for potential future use)
     CYAN = (0, 1, 1, 1)
     MAGENTA = (1, 0, 1, 1)
-
-    # Extended palette
-    ORANGE = (1, 0.5, 0, 1)
     PURPLE = (0.5, 0, 1, 1)
     PINK = (1, 0.75, 0.8, 1)
     BROWN = (0.6, 0.3, 0, 1)
@@ -29,20 +28,14 @@ class Colors:
 
     @classmethod
     def get_palette(cls):
-        """Get the default color palette."""
+        """Get the default color palette - 6 distinct colors."""
         return [
             cls.BLACK,
             cls.RED,
             cls.GREEN,
             cls.BLUE,
-            cls.YELLOW,
-            cls.CYAN,
-            cls.MAGENTA,
             cls.ORANGE,
-            cls.PURPLE,
-            cls.PINK,
-            cls.BROWN,
-            cls.GRAY,
+            cls.WHITE,
         ]
 
 

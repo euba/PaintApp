@@ -7,6 +7,9 @@ line width selection, and other UI interactions.
 
 from kivy.uix.behaviors import ToggleButtonBehavior
 from kivy.uix.togglebutton import ToggleButton
+from kivy.properties import ListProperty
+from kivy.clock import Clock
+from kivy.graphics import Color, Rectangle, Line
 
 
 class RadioButton(ToggleButton):
@@ -28,8 +31,11 @@ class ColorButton(RadioButton):
     A specialized radio button for color selection.
 
     This button is designed to display and select colors in the paint application.
-    It can be styled to show the color it represents.
+    It shows the actual color as its background and displays a red border when selected.
     """
+
+    # Kivy property to make color_value accessible in KV files
+    color_value = ListProperty([0.8, 0.8, 0.8, 1])
 
     def __init__(self, color=None, **kwargs):
         """
@@ -40,11 +46,64 @@ class ColorButton(RadioButton):
             **kwargs: Additional keyword arguments for the parent class
         """
         super().__init__(**kwargs)
-        self.color_value = color or (0, 0, 0, 1)
-
-        # Set the button's background color to match the color it represents
+        
+        # Remove default button styling
+        self.background_normal = ''
+        self.background_down = ''
+        self.background_color = (0, 0, 0, 0)  # Transparent
+        self.text = ''  # No text on color buttons
+        
+        # Set the color value if provided
         if color:
-            self.background_color = color
+            self.color_value = list(color)
+        
+        # Initialize graphics
+        self.color_rect = None
+        self.border_color = None
+        self.border_line = None
+        
+        # Bind to events
+        self.bind(size=self._update_graphics)
+        self.bind(pos=self._update_graphics)
+        self.bind(state=self._update_graphics)
+        
+        # Schedule initial graphics setup
+        Clock.schedule_once(self._setup_graphics, 0)
+
+    def _setup_graphics(self, dt):
+        """Set up the graphics for the color button."""
+        with self.canvas.before:
+            # Color rectangle
+            self.color_instruction = Color(*self.color_value)
+            self.color_rect = Rectangle(pos=self.pos, size=self.size)
+            
+            # Border - thinner lines
+            border_color = (1, 0, 0, 1) if self.state == 'down' else (0.3, 0.3, 0.3, 1)
+            self.border_color = Color(*border_color)
+            border_width = 2 if self.state == 'down' else 1  # Reduced from 3/2 to 2/1
+            self.border_line = Line(rectangle=(*self.pos, *self.size), width=border_width)
+
+    def _update_graphics(self, *args):
+        """Update the graphics when size, position, or state changes."""
+        if self.color_rect and self.border_line:
+            # Update color
+            self.color_instruction.rgba = self.color_value
+            
+            # Update rectangle position and size
+            self.color_rect.pos = self.pos
+            self.color_rect.size = self.size
+            
+            # Update border - thinner lines
+            border_color = (1, 0, 0, 1) if self.state == 'down' else (0.3, 0.3, 0.3, 1)
+            self.border_color.rgba = border_color
+            border_width = 2 if self.state == 'down' else 1  # Reduced from 3/2 to 2/1
+            self.border_line.rectangle = (*self.pos, *self.size)
+            self.border_line.width = border_width
+
+    def on_color_value(self, instance, value):
+        """Called when color_value property changes."""
+        if hasattr(self, 'color_instruction') and self.color_instruction:
+            self.color_instruction.rgba = value
 
     def get_color(self):
         """
@@ -53,7 +112,7 @@ class ColorButton(RadioButton):
         Returns:
             tuple: RGBA color tuple
         """
-        return self.color_value
+        return tuple(self.color_value)
 
     def set_color(self, color):
         """
@@ -62,8 +121,7 @@ class ColorButton(RadioButton):
         Args:
             color (tuple): RGBA color tuple (r, g, b, a)
         """
-        self.color_value = color
-        self.background_color = color
+        self.color_value = list(color)
 
 
 class LineWidthButton(RadioButton):

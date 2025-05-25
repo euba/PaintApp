@@ -74,10 +74,10 @@ def test_color_constants():
     assert hasattr(Colors, 'GREEN')
     assert hasattr(Colors, 'BLUE')
     
-    # Test color palette
+    # Test color palette - should have exactly 6 distinct colors
     palette = Colors.get_palette()
     assert isinstance(palette, list)
-    assert len(palette) > 0
+    assert len(palette) == 6
 
 def test_line_width_constants():
     """Test that line width constants are properly defined."""
@@ -103,6 +103,18 @@ def test_kv_file_exists():
     """Test that the Kivy layout file exists."""
     kv_path = src_dir / "paintapp" / "assets" / "kv" / "paint.kv"
     assert kv_path.exists(), f"paint.kv file should exist at {kv_path}"
+
+def test_color_button():
+    """Test ColorButton functionality."""
+    from paintapp.widgets.buttons import ColorButton
+    
+    # Test color button creation with orange color
+    orange_color = (1, 0.5, 0, 1)
+    btn = ColorButton(color=orange_color)
+    
+    assert btn.get_color() == orange_color
+    assert btn.color_value == list(orange_color)
+    assert btn.text == ''  # Color buttons should have no text
 
 def test_app_info():
     """Test that app info is properly configured."""

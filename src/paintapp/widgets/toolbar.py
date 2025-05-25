@@ -62,18 +62,18 @@ class Toolbar(BoxLayout):
         # Color label
         color_label = Label(
             text="Colors:",
-            size_hint_x=0.15,  # 15% of the color section
+            size_hint_x=0.2,  # Increased from 15% to 20% to give more space for label
             text_size=(None, None),
             halign="center",
             valign="middle"
         )
         color_section.add_widget(color_label)
 
-        # Color buttons container
+        # Color buttons container - reduced to make buttons smaller
         colors_container = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.85,  # 85% of the color section
-            spacing=2
+            size_hint_x=0.6,  # Reduced from 85% to 60% (30% reduction)
+            spacing=4  # Increased spacing between buttons
         )
 
         # Color buttons
@@ -84,7 +84,7 @@ class Toolbar(BoxLayout):
             color_btn = ColorButton(
                 color=color,
                 group="colors",
-                size_hint_x=1.0 / len(colors),  # Equal distribution
+                size_hint_x=1.0 / len(colors),  # Equal distribution within smaller container
                 size_hint_y=1.0
             )
             color_btn.bind(on_press=self._on_color_selected)
@@ -97,6 +97,11 @@ class Toolbar(BoxLayout):
             colors_container.add_widget(color_btn)
 
         color_section.add_widget(colors_container)
+        
+        # Add spacer to center the color buttons
+        spacer = Label(text="", size_hint_x=0.2)  # 20% spacer on the right
+        color_section.add_widget(spacer)
+        
         self.add_widget(color_section)
 
     def _add_line_width_section(self):
