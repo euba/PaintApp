@@ -5,6 +5,7 @@ Contains the main layout manager that organizes the canvas and toolbar.
 """
 
 from kivy.uix.boxlayout import BoxLayout
+from kivy.core.window import Window
 
 from ..core.canvas import MyCanvas
 from ..widgets.toolbar import Toolbar
@@ -27,6 +28,10 @@ class MainLayout(BoxLayout):
 
         # Create the main components
         self._setup_layout()
+        
+        # Bind keyboard events
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
     def _setup_layout(self):
         """Set up the main layout with canvas and toolbar."""
@@ -107,3 +112,44 @@ class MainLayout(BoxLayout):
             tuple: (min_x, min_y, max_x, max_y) or None if no drawings
         """
         return self.canvas_widget.get_drawing_bounds() if self.canvas_widget else None
+
+    def _keyboard_closed(self):
+        """Handle keyboard being closed."""
+        if self._keyboard:
+            self._keyboard.unbind(on_key_down=self._on_keyboard_down)
+            self._keyboard = None
+
+    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
+        """
+        Handle keyboard key down events.
+        
+        Args:
+            keyboard: The keyboard instance
+            keycode: Tuple of (key_code, key_string)
+            text: The text representation of the key
+            modifiers: List of modifier keys pressed
+        
+        Returns:
+            bool: True if the key was handled, False otherwise
+        """
+        key_code, key_string = keycode
+        
+        # Check for CMD+Shift+Z (redo) or CMD+Y (redo) on macOS, Ctrl+Shift+Z or Ctrl+Y on other platforms
+        if ('meta' in modifiers or 'ctrl' in modifiers):
+            if key_string == 'z' and 'shift' in modifiers:
+                # CMD+Shift+Z or Ctrl+Shift+Z for redo
+                if self.canvas_widget and hasattr(self.canvas_widget, 'redo'):
+                    self.canvas_widget.redo()
+                    return True
+            elif key_string == 'y':
+                # CMD+Y or Ctrl+Y for redo (alternative shortcut)
+                if self.canvas_widget and hasattr(self.canvas_widget, 'redo'):
+                    self.canvas_widget.redo()
+                    return True
+            elif key_string == 'z':
+                # CMD+Z or Ctrl+Z for undo
+                if self.canvas_widget and hasattr(self.canvas_widget, 'undo'):
+                    self.canvas_widget.undo()
+                    return True
+        
+        return False

@@ -36,6 +36,10 @@ class MyCanvas(Widget):
         # Drawing history for potential undo functionality
         self.drawing_history = []
         
+        # Undo/Redo functionality
+        self.undo_stack = []  # Stack of states that can be undone
+        self.redo_stack = []  # Stack of states that can be redone
+        
         # Track canvas size for scaling calculations
         self.last_canvas_size = None
         self.is_resizing = False
@@ -236,6 +240,9 @@ class MyCanvas(Widget):
         touch.ud["start_pos"] = (touch.x, touch.y)
 
         if self.drawing_mode == DrawingModes.LINE:
+            # Save state before starting new drawing action
+            self._save_state_for_undo()
+            
             # Start a new line at the touch position
             with self.canvas:
                 # Set the current color for this line
@@ -262,11 +269,15 @@ class MyCanvas(Widget):
             # If there's already an active text input, finalize it first
             if self.active_text_input:
                 self._finalize_text_input()
+            # Save state before starting text input
+            self._save_state_for_undo()
             # Create text input directly on canvas
             self._create_text_input(touch.x, touch.y)
             # Return True to indicate we handled this touch and prevent further processing
             return True
         else:
+            # Save state before starting shape drawing
+            self._save_state_for_undo()
             # For shapes and straight lines, we'll create a temporary shape that gets updated during drag
             touch.ud["temp_shape"] = None
             touch.ud["drawing_mode"] = self.drawing_mode
@@ -362,6 +373,10 @@ class MyCanvas(Widget):
 
     def clear_screen(self):
         """Clear the entire canvas while preserving child widgets."""
+        # Save state before clearing for undo functionality
+        if self.drawing_history:  # Only save if there's something to clear
+            self._save_state_for_undo()
+        
         # Finalize any active text input
         if self.active_text_input:
             self._finalize_text_input()
@@ -745,3 +760,224 @@ class MyCanvas(Widget):
         }
         
         self.drawing_history.append(text_data)
+
+    def _save_state_for_undo(self):
+        """Save current state to undo stack."""
+        # Create a simplified copy of the drawing history without Kivy objects
+        current_state = []
+        for entry in self.drawing_history:
+            # Create a clean copy without Kivy graphics objects
+            clean_entry = {
+                "type": entry.get("type", "unknown"),
+                "color": entry.get("color", (0, 0, 0, 1)),
+                "width": entry.get("width", 2),
+                "drawing_mode": entry.get("drawing_mode", "line")
+            }
+            
+            # Copy specific data based on entry type
+            if "points" in entry:
+                clean_entry["points"] = entry["points"][:]
+            if "start_pos" in entry:
+                clean_entry["start_pos"] = entry["start_pos"]
+            if "end_pos" in entry:
+                clean_entry["end_pos"] = entry["end_pos"]
+            if "radius" in entry:
+                clean_entry["radius"] = entry["radius"]
+            if "circle_points" in entry:
+                clean_entry["circle_points"] = entry["circle_points"][:]
+            if "rect_bounds" in entry:
+                clean_entry["rect_bounds"] = entry["rect_bounds"]
+            if "text" in entry:
+                clean_entry["text"] = entry["text"]
+            if "pos" in entry:
+                clean_entry["pos"] = entry["pos"]
+            if "size" in entry:
+                clean_entry["size"] = entry["size"]
+            if "font_size" in entry:
+                clean_entry["font_size"] = entry["font_size"]
+                
+            current_state.append(clean_entry)
+        
+        self.undo_stack.append(current_state)
+        
+        # Limit undo stack size to prevent memory issues
+        if len(self.undo_stack) > 50:
+            self.undo_stack.pop(0)
+        
+        # Clear redo stack when new action is performed
+        self.redo_stack.clear()
+
+    def undo(self):
+        """Undo the last action."""
+        if not self.undo_stack:
+            return False
+        
+        # Finalize any active text input first
+        if self.active_text_input:
+            self._finalize_text_input()
+        
+        # Save current state to redo stack (using our clean copy method)
+        current_state = []
+        for entry in self.drawing_history:
+            clean_entry = {
+                "type": entry.get("type", "unknown"),
+                "color": entry.get("color", (0, 0, 0, 1)),
+                "width": entry.get("width", 2),
+                "drawing_mode": entry.get("drawing_mode", "line")
+            }
+            
+            # Copy specific data based on entry type
+            if "points" in entry:
+                clean_entry["points"] = entry["points"][:]
+            if "start_pos" in entry:
+                clean_entry["start_pos"] = entry["start_pos"]
+            if "end_pos" in entry:
+                clean_entry["end_pos"] = entry["end_pos"]
+            if "radius" in entry:
+                clean_entry["radius"] = entry["radius"]
+            if "circle_points" in entry:
+                clean_entry["circle_points"] = entry["circle_points"][:]
+            if "rect_bounds" in entry:
+                clean_entry["rect_bounds"] = entry["rect_bounds"]
+            if "text" in entry:
+                clean_entry["text"] = entry["text"]
+            if "pos" in entry:
+                clean_entry["pos"] = entry["pos"]
+            if "size" in entry:
+                clean_entry["size"] = entry["size"]
+            if "font_size" in entry:
+                clean_entry["font_size"] = entry["font_size"]
+                
+            current_state.append(clean_entry)
+        
+        self.redo_stack.append(current_state)
+        
+        # Restore previous state
+        previous_state = self.undo_stack.pop()
+        self.drawing_history = previous_state
+        
+        # Redraw canvas
+        self._redraw_canvas()
+        return True
+
+    def redo(self):
+        """Redo the last undone action."""
+        if not self.redo_stack:
+            return False
+        
+        # Finalize any active text input first
+        if self.active_text_input:
+            self._finalize_text_input()
+        
+        # Save current state to undo stack (using our clean copy method)
+        current_state = []
+        for entry in self.drawing_history:
+            clean_entry = {
+                "type": entry.get("type", "unknown"),
+                "color": entry.get("color", (0, 0, 0, 1)),
+                "width": entry.get("width", 2),
+                "drawing_mode": entry.get("drawing_mode", "line")
+            }
+            
+            # Copy specific data based on entry type
+            if "points" in entry:
+                clean_entry["points"] = entry["points"][:]
+            if "start_pos" in entry:
+                clean_entry["start_pos"] = entry["start_pos"]
+            if "end_pos" in entry:
+                clean_entry["end_pos"] = entry["end_pos"]
+            if "radius" in entry:
+                clean_entry["radius"] = entry["radius"]
+            if "circle_points" in entry:
+                clean_entry["circle_points"] = entry["circle_points"][:]
+            if "rect_bounds" in entry:
+                clean_entry["rect_bounds"] = entry["rect_bounds"]
+            if "text" in entry:
+                clean_entry["text"] = entry["text"]
+            if "pos" in entry:
+                clean_entry["pos"] = entry["pos"]
+            if "size" in entry:
+                clean_entry["size"] = entry["size"]
+            if "font_size" in entry:
+                clean_entry["font_size"] = entry["font_size"]
+                
+            current_state.append(clean_entry)
+        
+        self.undo_stack.append(current_state)
+        
+        # Restore next state
+        next_state = self.redo_stack.pop()
+        self.drawing_history = next_state
+        
+        # Redraw canvas
+        self._redraw_canvas()
+        return True
+
+    def _redraw_canvas(self):
+        """Redraw the entire canvas from drawing history."""
+        # Clear the canvas
+        self.canvas.clear()
+        
+        # Reset drawing state
+        with self.canvas:
+            Color(*self.current_color)
+        
+        # Redraw all items from history
+        for entry in self.drawing_history:
+            try:
+                with self.canvas:
+                    Color(*entry.get("color", (0, 0, 0, 1)))
+                    
+                    entry_type = entry.get("type", "unknown")
+                    width = entry.get("width", 2)
+                    
+                    if entry_type in ["line_start", "line_complete"] and "points" in entry:
+                        # Redraw line
+                        Line(points=entry["points"], width=width)
+                        
+                    elif entry_type == "shape_complete":
+                        # Redraw shape
+                        mode = entry.get("drawing_mode", "line")
+                        
+                        if mode == DrawingModes.STRAIGHT_LINE and "points" in entry:
+                            Line(points=entry["points"], width=width)
+                        elif mode == DrawingModes.CIRCLE and "circle_points" in entry:
+                            Line(points=entry["circle_points"], width=width)
+                        elif mode == DrawingModes.RECTANGLE and "rect_bounds" in entry:
+                            Line(rectangle=entry["rect_bounds"], width=width)
+                        elif mode == DrawingModes.TRIANGLE and "points" in entry:
+                            Line(points=entry["points"], width=width)
+                            
+                    elif entry_type == "text_complete":
+                        # Redraw text
+                        text = entry.get("text", "")
+                        font_size = entry.get("font_size", 24)
+                        pos = entry.get("pos", (0, 0))
+                        color = entry.get("color", (0, 0, 0, 1))
+                        
+                        if text:
+                            label = CoreLabel(
+                                text=text,
+                                font_size=font_size,
+                                color=color
+                            )
+                            label.refresh()
+                            texture = label.texture
+                            
+                            Rectangle(
+                                texture=texture,
+                                pos=pos,
+                                size=texture.size
+                            )
+            except Exception as e:
+                # Skip problematic entries to prevent crashes
+                print(f"Warning: Skipping drawing entry due to error: {e}")
+                continue
+
+    def can_undo(self):
+        """Check if undo is possible."""
+        return len(self.undo_stack) > 0
+
+    def can_redo(self):
+        """Check if redo is possible."""
+        return len(self.redo_stack) > 0

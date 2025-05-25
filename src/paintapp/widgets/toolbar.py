@@ -107,7 +107,7 @@ class Toolbar(BoxLayout):
         # Color section container
         color_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.35,  # Reduced from 50% to 35% to make room for drawing modes
+            size_hint_x=0.31,  # Reduced to accommodate larger action section (25+23+23=71, so 29% left for colors)
             spacing=3
         )
 
@@ -151,7 +151,7 @@ class Toolbar(BoxLayout):
         color_section.add_widget(colors_container)
         
         # Add spacer to center the color buttons
-        spacer = Label(text="", size_hint_x=0.2)  # 20% spacer on the right
+        spacer = Label(text="", size_hint_x=0.1)  # Reduced from 20% to 10% to bring closer to line width
         color_section.add_widget(spacer)
         
         self.add_widget(color_section)
@@ -161,7 +161,7 @@ class Toolbar(BoxLayout):
         # Line width section container
         width_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.25,  # Reduced from 35% to 25% to make room for drawing modes
+            size_hint_x=0.23,  # Reduced from 25% to 23% to bring closer to colors
             spacing=3
         )
 
@@ -208,17 +208,37 @@ class Toolbar(BoxLayout):
 
     def _add_action_buttons(self):
         """Add action buttons to the toolbar."""
+        # Remove spacer since action section is now same size as line width section
+
         # Action buttons section container
         action_section = BoxLayout(
             orientation="horizontal",
-            size_hint_x=0.15,  # Take up 15% of horizontal space
-            spacing=3
+            size_hint_x=0.23,  # Match the line width section size
+            spacing=2  # Match line width section spacing
         )
 
-        # Clear button
+        # Undo button
+        undo_btn = Button(
+            text="<-",  # Back arrow
+            size_hint_x=0.333,  # Equal size like line width buttons
+            size_hint_y=1.0
+        )
+        undo_btn.bind(on_press=self._on_undo_pressed)
+        action_section.add_widget(undo_btn)
+
+        # Redo button
+        redo_btn = Button(
+            text="->",  # Forward arrow
+            size_hint_x=0.333,  # Equal size like line width buttons
+            size_hint_y=1.0
+        )
+        redo_btn.bind(on_press=self._on_redo_pressed)
+        action_section.add_widget(redo_btn)
+
+        # Clear button (same size as undo/redo)
         clear_btn = Button(
             text="Clear",
-            size_hint_x=1.0,  # Take full width of action section
+            size_hint_x=0.334,  # Equal size like line width buttons
             size_hint_y=1.0
         )
         clear_btn.bind(on_press=self._on_clear_pressed)
@@ -258,6 +278,26 @@ class Toolbar(BoxLayout):
         if self.canvas_widget and hasattr(self.canvas_widget, "set_drawing_mode"):
             mode = button.get_mode()
             self.canvas_widget.set_drawing_mode(mode)
+
+    def _on_undo_pressed(self, button):
+        """
+        Handle undo button press.
+
+        Args:
+            button (Button): The undo button
+        """
+        if self.canvas_widget and hasattr(self.canvas_widget, "undo"):
+            self.canvas_widget.undo()
+
+    def _on_redo_pressed(self, button):
+        """
+        Handle redo button press.
+
+        Args:
+            button (Button): The redo button
+        """
+        if self.canvas_widget and hasattr(self.canvas_widget, "redo"):
+            self.canvas_widget.redo()
 
     def _on_clear_pressed(self, button):
         """
