@@ -216,6 +216,7 @@ class DrawingModeButton(RadioButton):
             "circle": "O",  # Letter O for circle
             "triangle": "^",  # Caret for triangle
             "rectangle": "[]",  # Square brackets for rectangle
+            "text": "T",  # Letter T for text
         }
         self.text = mode_labels.get(self.drawing_mode, self.drawing_mode.title())
 
@@ -242,5 +243,6 @@ class DrawingModeButton(RadioButton):
             "circle": "O",  # Letter O for circle
             "triangle": "^",  # Caret for triangle
             "rectangle": "[]",  # Square brackets for rectangle
+            "text": "T",  # Letter T for text
         }
         self.text = mode_labels.get(mode, mode.title())

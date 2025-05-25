@@ -71,11 +71,12 @@ class DrawingModes:
     CIRCLE = "circle"
     TRIANGLE = "triangle"
     RECTANGLE = "rectangle"
+    TEXT = "text"
 
     @classmethod
     def get_modes(cls):
         """Get all available drawing modes."""
-        return [cls.LINE, cls.STRAIGHT_LINE, cls.CIRCLE, cls.TRIANGLE, cls.RECTANGLE]
+        return [cls.LINE, cls.STRAIGHT_LINE, cls.CIRCLE, cls.TRIANGLE, cls.RECTANGLE, cls.TEXT]
 
     @classmethod
     def get_mode_labels(cls):
@@ -86,4 +87,5 @@ class DrawingModes:
             cls.CIRCLE: "Circle", 
             cls.TRIANGLE: "Triangle",
             cls.RECTANGLE: "Rectangle",
+            cls.TEXT: "Text",
         }

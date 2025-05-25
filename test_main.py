@@ -240,9 +240,12 @@ def test_drawing_modes():
     canvas.set_drawing_mode(DrawingModes.RECTANGLE)
     assert canvas.get_drawing_mode() == DrawingModes.RECTANGLE
     
+    canvas.set_drawing_mode(DrawingModes.TEXT)
+    assert canvas.get_drawing_mode() == DrawingModes.TEXT
+    
     # Test invalid mode (should not change)
     canvas.set_drawing_mode("invalid_mode")
-    assert canvas.get_drawing_mode() == DrawingModes.RECTANGLE
+    assert canvas.get_drawing_mode() == DrawingModes.TEXT
 
 
 def test_drawing_mode_button():
@@ -274,6 +277,11 @@ def test_drawing_mode_button():
     rect_btn = DrawingModeButton(mode=DrawingModes.RECTANGLE)
     assert rect_btn.get_mode() == DrawingModes.RECTANGLE
     assert rect_btn.text == "[]"
+    
+    # Test text mode button
+    text_btn = DrawingModeButton(mode=DrawingModes.TEXT)
+    assert text_btn.get_mode() == DrawingModes.TEXT
+    assert text_btn.text == "T"
 
 
 def test_drawing_mode_constants():
@@ -286,21 +294,23 @@ def test_drawing_mode_constants():
     assert hasattr(DrawingModes, 'CIRCLE')
     assert hasattr(DrawingModes, 'TRIANGLE')
     assert hasattr(DrawingModes, 'RECTANGLE')
+    assert hasattr(DrawingModes, 'TEXT')
     
     # Test get_modes method
     modes = DrawingModes.get_modes()
     assert isinstance(modes, list)
-    assert len(modes) == 5
+    assert len(modes) == 6
     assert DrawingModes.LINE in modes
     assert DrawingModes.STRAIGHT_LINE in modes
     assert DrawingModes.CIRCLE in modes
     assert DrawingModes.TRIANGLE in modes
     assert DrawingModes.RECTANGLE in modes
+    assert DrawingModes.TEXT in modes
     
     # Test get_mode_labels method
     labels = DrawingModes.get_mode_labels()
     assert isinstance(labels, dict)
-    assert len(labels) == 5
+    assert len(labels) == 6
 
 
 def test_line_width_button_symbols():
