@@ -46,8 +46,8 @@ def test_canvas_class():
     assert hasattr(canvas, 'line_width')
     assert hasattr(canvas, 'has_drawings')
     
-    # Test default line width
-    assert canvas.line_width == 2
+    # Test default line width (now "Normal" which is 4)
+    assert canvas.line_width == 4
 
 def test_line_width_setting():
     """Test line width setting functionality."""
@@ -55,15 +55,15 @@ def test_line_width_setting():
     
     canvas = MyCanvas()
     
-    # Test different line widths
+    # Test different line widths (updated values after removing original Thin)
     canvas.set_line_width('Thin')
-    assert canvas.line_width == 1
+    assert canvas.line_width == 2  # Previously Normal
     
     canvas.set_line_width('Normal')
-    assert canvas.line_width == 2
+    assert canvas.line_width == 4  # Previously Thick
     
     canvas.set_line_width('Thick')
-    assert canvas.line_width == 4
+    assert canvas.line_width == 8  # Previously Extra Thick
 
 def test_color_constants():
     """Test that color constants are properly defined."""

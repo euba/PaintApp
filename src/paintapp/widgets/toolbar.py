@@ -139,7 +139,7 @@ class Toolbar(BoxLayout):
             )
             width_btn.bind(on_press=self._on_width_selected)
 
-            # Set "Normal" as default
+            # Set "Normal" as default (middle option)
             if name == "Normal":
                 width_btn.state = "down"
 

@@ -17,7 +17,7 @@ class AppConfig:
     DEFAULT_BACKGROUND_COLOR = (1, 1, 1, 1)  # White
 
     # Default drawing settings
-    DEFAULT_LINE_WIDTH = 2
+    DEFAULT_LINE_WIDTH = 4  # "Normal" width (previously "Thick")
     DEFAULT_COLOR = (0, 0, 0, 1)  # Black
 
     @classmethod

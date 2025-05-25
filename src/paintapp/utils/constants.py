@@ -49,10 +49,10 @@ class Colors:
 class LineWidths:
     """Line width constants."""
 
-    THIN = 1
-    NORMAL = 2
-    THICK = 4
-    EXTRA_THICK = 8
+    # Renamed width constants (removed THIN, renamed others)
+    THIN = 2      # Previously NORMAL
+    NORMAL = 4    # Previously THICK
+    THICK = 8     # Previously EXTRA_THICK
 
     @classmethod
     def get_width_map(cls):
@@ -61,7 +61,6 @@ class LineWidths:
             "Thin": cls.THIN,
             "Normal": cls.NORMAL,
             "Thick": cls.THICK,
-            "Extra Thick": cls.EXTRA_THICK,
         }
 
     @classmethod
