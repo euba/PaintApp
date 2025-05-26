@@ -564,10 +564,12 @@ class MyCanvas(Widget):
 
         return lines
 
-    def _create_dashed_line_from_points(self, points, dash_length, gap_length, width=None):
+    def _create_dashed_line_from_points(
+        self, points, dash_length, gap_length, width=None
+    ):
         """Create dashed line segments from a list of points."""
         lines = []
-        
+
         # Use provided width or fall back to current line width
         line_width = width if width is not None else self.line_width
 
@@ -576,7 +578,9 @@ class MyCanvas(Widget):
 
         # For free-drawn lines (many points), treat as continuous path
         if len(points) > 4:
-            return self._create_dashed_continuous_path(points, dash_length, gap_length, width)
+            return self._create_dashed_continuous_path(
+                points, dash_length, gap_length, width
+            )
 
         # For simple lines (2 points), use the original method
         x1, y1 = points[0], points[1]
@@ -616,10 +620,12 @@ class MyCanvas(Widget):
 
         return lines
 
-    def _create_dashed_continuous_path(self, points, dash_length, gap_length, width=None):
+    def _create_dashed_continuous_path(
+        self, points, dash_length, gap_length, width=None
+    ):
         """Create dashed line segments along a continuous path with even distribution."""
         lines = []
-        
+
         # Use provided width or fall back to current line width
         line_width = width if width is not None else self.line_width
 
@@ -709,25 +715,33 @@ class MyCanvas(Widget):
         # Top side
         top_points = [x, y + height, x + rect_width, y + height]
         lines.extend(
-            self._create_dashed_line_from_points(top_points, dash_length, gap_length, width)
+            self._create_dashed_line_from_points(
+                top_points, dash_length, gap_length, width
+            )
         )
 
         # Right side
         right_points = [x + rect_width, y + height, x + rect_width, y]
         lines.extend(
-            self._create_dashed_line_from_points(right_points, dash_length, gap_length, width)
+            self._create_dashed_line_from_points(
+                right_points, dash_length, gap_length, width
+            )
         )
 
         # Bottom side
         bottom_points = [x + rect_width, y, x, y]
         lines.extend(
-            self._create_dashed_line_from_points(bottom_points, dash_length, gap_length, width)
+            self._create_dashed_line_from_points(
+                bottom_points, dash_length, gap_length, width
+            )
         )
 
         # Left side
         left_points = [x, y, x, y + height]
         lines.extend(
-            self._create_dashed_line_from_points(left_points, dash_length, gap_length, width)
+            self._create_dashed_line_from_points(
+                left_points, dash_length, gap_length, width
+            )
         )
 
         return lines
@@ -749,9 +763,7 @@ class MyCanvas(Widget):
         # Create dashed segments using the stored width
         points = line_entry["points"]
         width = line_entry.get("width", self.line_width)
-        dash_length = max(
-            width * 3, 15
-        )  # Shorter dashes for better visibility
+        dash_length = max(width * 3, 15)  # Shorter dashes for better visibility
         gap_length = dash_length * 1.5  # Larger gaps for more spacing
 
         # Draw dashed segments
@@ -1324,7 +1336,10 @@ class MyCanvas(Widget):
                                 mode == DrawingModes.CIRCLE and "circle_points" in entry
                             ):
                                 self._create_dashed_line_from_points(
-                                    entry["circle_points"], dash_length, gap_length, width
+                                    entry["circle_points"],
+                                    dash_length,
+                                    gap_length,
+                                    width,
                                 )
                             elif (
                                 mode == DrawingModes.RECTANGLE
