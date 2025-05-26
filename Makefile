@@ -19,7 +19,7 @@ help:
 	@echo "  format       - Format code with black"
 	@echo "  build        - Build the application with PyInstaller"
 	@echo "  build-app    - Build macOS .app bundle with py2app"
-	@echo "  build-dmg    - Create DMG installer"
+	@echo "  build-dmg    - Create DMG installer (ready for distribution)"
 	@echo "  create-icon  - Create app icon (app_icon.icns)"
 	@echo "  check-deps   - Check if required system dependencies are installed"
 
@@ -121,17 +121,10 @@ build-app: install-build clean setup-py2app
 	uv run python setup.py py2app
 	@echo "✓ macOS .app bundle created in $(DIST_DIR)/"
 
-# Create DMG installer
-build-dmg: build-app
+# Create DMG installer using our simple build script
+build-dmg: install-build
 	@echo "Creating DMG installer..."
-	@cp dmg_template.py dmg_settings.py
-	@if [ -f "$(DIST_DIR)/PaintApp.app" ]; then \
-		uv run dmgbuild -s dmg_settings.py "Paint App" "$(DIST_DIR)/PaintApp.dmg"; \
-		echo "✓ DMG installer created: $(DIST_DIR)/PaintApp.dmg"; \
-	else \
-		echo "Error: PaintApp.app not found. Run 'make build-app' first."; \
-		exit 1; \
-	fi
+	python3 build_simple_dmg.py
 
 # Full build pipeline
 all: clean install-build create-icon build-app build-dmg
