@@ -95,10 +95,6 @@ ipython_config.py
 .env.test.local
 .env.production.local
 
-# Build artifacts
-icon.iconset/
-app_icon.icns
-
 # Old/redundant files (from before modular restructure)
 /main.py
 /paint.kv
