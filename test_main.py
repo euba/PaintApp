@@ -217,6 +217,138 @@ def test_canvas_drawing_scaling():
     assert abs(canvas.drawing_history[0]['width'] - 12.0) < 0.1  # 6 * 2.0 (average of 2.0 and 2.0)
 
 
+def test_line_width_preservation_after_undo():
+    """Test that shapes maintain their original line width after undo operations."""
+    from paintapp.core.canvas import MyCanvas
+    from paintapp.utils.constants import DrawingModes, LineStyles
+    import math
+    
+    # Create canvas
+    canvas = MyCanvas()
+    canvas.size = (400, 300)
+    
+    # Save initial state for undo
+    canvas._save_state_for_undo()
+    
+    # Draw a thick rectangle
+    canvas.set_drawing_mode(DrawingModes.RECTANGLE)
+    canvas.set_line_style(LineStyles.SOLID)
+    canvas.set_line_width('Thick')  # width = 12
+    canvas.set_color((1, 0, 0, 1))  # Red
+    
+    # Simulate drawing a rectangle
+    canvas.drawing_history.append({
+        "type": "shape_complete",
+        "color": (1, 0, 0, 1),
+        "width": 12,  # Thick
+        "drawing_mode": DrawingModes.RECTANGLE,
+        "style": LineStyles.SOLID,
+        "rect_bounds": (50, 50, 100, 80)
+    })
+    
+    # Save state after first shape
+    canvas._save_state_for_undo()
+    
+    # Draw a thin triangle
+    canvas.set_drawing_mode(DrawingModes.TRIANGLE)
+    canvas.set_line_style(LineStyles.DASHED)
+    canvas.set_line_width('Thin')  # width = 3
+    canvas.set_color((0, 1, 0, 1))  # Green
+    
+    # Simulate drawing a triangle
+    canvas.drawing_history.append({
+        "type": "shape_complete",
+        "color": (0, 1, 0, 1),
+        "width": 3,  # Thin
+        "drawing_mode": DrawingModes.TRIANGLE,
+        "style": LineStyles.DASHED,
+        "points": [200, 200, 150, 250, 250, 250, 200, 200]
+    })
+    
+    # Save state after second shape
+    canvas._save_state_for_undo()
+    
+    # Draw a normal circle
+    canvas.set_drawing_mode(DrawingModes.CIRCLE)
+    canvas.set_line_style(LineStyles.SOLID)
+    canvas.set_line_width('Normal')  # width = 6
+    canvas.set_color((0, 0, 1, 1))  # Blue
+    
+    # Simulate drawing a circle
+    circle_points = []
+    center_x, center_y, radius = 300, 150, 40
+    for i in range(65):  # 64 segments + 1 to close
+        angle = 2 * math.pi * i / 64
+        x = center_x + radius * math.cos(angle)
+        y = center_y + radius * math.sin(angle)
+        circle_points.extend([x, y])
+    
+    canvas.drawing_history.append({
+        "type": "shape_complete",
+        "color": (0, 0, 1, 1),
+        "width": 6,  # Normal
+        "drawing_mode": DrawingModes.CIRCLE,
+        "style": LineStyles.SOLID,
+        "circle_points": circle_points
+    })
+    
+    # Change current line width to something different
+    canvas.set_line_width('Thick')  # This should NOT affect existing shapes
+    
+    # Perform undo operation
+    success = canvas.undo()
+    assert success, "Undo should be successful"
+    
+    # Perform redo operation
+    success = canvas.redo()
+    assert success, "Redo should be successful"
+    
+    # Verify that shapes maintain their original widths
+    expected_widths = [12, 3, 6]  # Thick, Thin, Normal
+    actual_widths = [entry.get('width', 0) for entry in canvas.drawing_history]
+    
+    assert actual_widths == expected_widths, f"Expected widths {expected_widths}, got {actual_widths}"
+
+
+def test_dashed_line_width_preservation():
+    """Test that dashed lines maintain their width during redraw operations."""
+    from paintapp.core.canvas import MyCanvas
+    from paintapp.utils.constants import DrawingModes, LineStyles
+    
+    # Create canvas
+    canvas = MyCanvas()
+    canvas.size = (400, 300)
+    
+    # Draw a thick dashed line
+    canvas.set_drawing_mode(DrawingModes.LINE)
+    canvas.set_line_style(LineStyles.DASHED)
+    canvas.set_line_width('Thick')  # width = 12
+    canvas.set_color((1, 0, 1, 1))  # Magenta
+    
+    # Simulate drawing a dashed line
+    canvas.drawing_history.append({
+        "type": "line_complete",
+        "color": (1, 0, 1, 1),
+        "width": 12,  # Thick
+        "drawing_mode": DrawingModes.LINE,
+        "style": LineStyles.DASHED,
+        "points": [50, 100, 100, 100, 150, 120, 200, 100]
+    })
+    
+    original_width = canvas.drawing_history[0].get('width')
+    assert original_width == 12, "Original dashed line width should be 12"
+    
+    # Change current line width
+    canvas.set_line_width('Thin')  # This should NOT affect the existing line
+    
+    # Trigger a redraw by calling _redraw_canvas
+    canvas._redraw_canvas()
+    
+    # Verify the width is preserved
+    preserved_width = canvas.drawing_history[0].get('width')
+    assert preserved_width == 12, f"Dashed line width should be preserved as 12, got {preserved_width}"
+
+
 def test_drawing_modes():
     """Test that drawing modes can be set and retrieved."""
     from paintapp.core.canvas import MyCanvas

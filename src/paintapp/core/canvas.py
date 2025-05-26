@@ -564,16 +564,19 @@ class MyCanvas(Widget):
 
         return lines
 
-    def _create_dashed_line_from_points(self, points, dash_length, gap_length):
+    def _create_dashed_line_from_points(self, points, dash_length, gap_length, width=None):
         """Create dashed line segments from a list of points."""
         lines = []
+        
+        # Use provided width or fall back to current line width
+        line_width = width if width is not None else self.line_width
 
         if len(points) < 4:  # Need at least 2 points (4 coordinates)
             return lines
 
         # For free-drawn lines (many points), treat as continuous path
         if len(points) > 4:
-            return self._create_dashed_continuous_path(points, dash_length, gap_length)
+            return self._create_dashed_continuous_path(points, dash_length, gap_length, width)
 
         # For simple lines (2 points), use the original method
         x1, y1 = points[0], points[1]
@@ -604,7 +607,7 @@ class MyCanvas(Widget):
 
                 # Create the dash segment
                 dash_line = Line(
-                    points=[start_x, start_y, end_x, end_y], width=self.line_width
+                    points=[start_x, start_y, end_x, end_y], width=line_width
                 )
                 lines.append(dash_line)
 
@@ -613,9 +616,12 @@ class MyCanvas(Widget):
 
         return lines
 
-    def _create_dashed_continuous_path(self, points, dash_length, gap_length):
+    def _create_dashed_continuous_path(self, points, dash_length, gap_length, width=None):
         """Create dashed line segments along a continuous path with even distribution."""
         lines = []
+        
+        # Use provided width or fall back to current line width
+        line_width = width if width is not None else self.line_width
 
         # Calculate total path length and create distance markers
         path_segments = []
@@ -667,7 +673,7 @@ class MyCanvas(Widget):
 
             # Create the dash if we have valid points
             if len(dash_points) >= 4:
-                dash_line = Line(points=dash_points, width=self.line_width)
+                dash_line = Line(points=dash_points, width=line_width)
                 lines.append(dash_line)
 
             # Move to next dash
@@ -695,33 +701,33 @@ class MyCanvas(Widget):
 
         return None
 
-    def _create_dashed_rectangle(self, rect, dash_length, gap_length):
+    def _create_dashed_rectangle(self, rect, dash_length, gap_length, width=None):
         """Create dashed rectangle by creating dashed lines for each side."""
-        x, y, width, height = rect
+        x, y, rect_width, height = rect
         lines = []
 
         # Top side
-        top_points = [x, y + height, x + width, y + height]
+        top_points = [x, y + height, x + rect_width, y + height]
         lines.extend(
-            self._create_dashed_line_from_points(top_points, dash_length, gap_length)
+            self._create_dashed_line_from_points(top_points, dash_length, gap_length, width)
         )
 
         # Right side
-        right_points = [x + width, y + height, x + width, y]
+        right_points = [x + rect_width, y + height, x + rect_width, y]
         lines.extend(
-            self._create_dashed_line_from_points(right_points, dash_length, gap_length)
+            self._create_dashed_line_from_points(right_points, dash_length, gap_length, width)
         )
 
         # Bottom side
-        bottom_points = [x + width, y, x, y]
+        bottom_points = [x + rect_width, y, x, y]
         lines.extend(
-            self._create_dashed_line_from_points(bottom_points, dash_length, gap_length)
+            self._create_dashed_line_from_points(bottom_points, dash_length, gap_length, width)
         )
 
         # Left side
         left_points = [x, y, x, y + height]
         lines.extend(
-            self._create_dashed_line_from_points(left_points, dash_length, gap_length)
+            self._create_dashed_line_from_points(left_points, dash_length, gap_length, width)
         )
 
         return lines
@@ -740,10 +746,11 @@ class MyCanvas(Widget):
             # Line might have already been removed or doesn't exist
             pass
 
-        # Create dashed segments
+        # Create dashed segments using the stored width
         points = line_entry["points"]
+        width = line_entry.get("width", self.line_width)
         dash_length = max(
-            self.line_width * 3, 15
+            width * 3, 15
         )  # Shorter dashes for better visibility
         gap_length = dash_length * 1.5  # Larger gaps for more spacing
 
@@ -751,7 +758,7 @@ class MyCanvas(Widget):
         with self.canvas:
             Color(*line_entry["color"])
             dash_segments = self._create_dashed_line_from_points(
-                points, dash_length, gap_length
+                points, dash_length, gap_length, width
             )
 
             # Store the dash segments in the line entry
@@ -771,9 +778,10 @@ class MyCanvas(Widget):
             # Shape might have already been removed or doesn't exist
             pass
 
-        # Create dashed segments based on shape type
+        # Create dashed segments based on shape type using the stored width
         mode = shape_entry.get("drawing_mode", "")
-        dash_length = max(self.line_width * 3, 15)
+        width = shape_entry.get("width", self.line_width)
+        dash_length = max(width * 3, 15)
         gap_length = dash_length * 1.5
 
         with self.canvas:
@@ -782,19 +790,19 @@ class MyCanvas(Widget):
 
             if mode == DrawingModes.STRAIGHT_LINE and "points" in shape_entry:
                 dash_segments = self._create_dashed_line_from_points(
-                    shape_entry["points"], dash_length, gap_length
+                    shape_entry["points"], dash_length, gap_length, width
                 )
             elif mode == DrawingModes.CIRCLE and "circle_points" in shape_entry:
                 dash_segments = self._create_dashed_line_from_points(
-                    shape_entry["circle_points"], dash_length, gap_length
+                    shape_entry["circle_points"], dash_length, gap_length, width
                 )
             elif mode == DrawingModes.RECTANGLE and "rect_bounds" in shape_entry:
                 dash_segments = self._create_dashed_rectangle(
-                    shape_entry["rect_bounds"], dash_length, gap_length
+                    shape_entry["rect_bounds"], dash_length, gap_length, width
                 )
             elif mode == DrawingModes.TRIANGLE and "points" in shape_entry:
                 dash_segments = self._create_dashed_line_from_points(
-                    shape_entry["points"], dash_length, gap_length
+                    shape_entry["points"], dash_length, gap_length, width
                 )
 
             # Store the dash segments in the shape entry
@@ -1291,7 +1299,7 @@ class MyCanvas(Widget):
                             dash_length = max(width * 3, 15)
                             gap_length = dash_length * 1.5
                             self._create_dashed_line_from_points(
-                                entry["points"], dash_length, gap_length
+                                entry["points"], dash_length, gap_length, width
                             )
                         else:
                             # Draw solid line
@@ -1310,24 +1318,24 @@ class MyCanvas(Widget):
 
                             if mode == DrawingModes.STRAIGHT_LINE and "points" in entry:
                                 self._create_dashed_line_from_points(
-                                    entry["points"], dash_length, gap_length
+                                    entry["points"], dash_length, gap_length, width
                                 )
                             elif (
                                 mode == DrawingModes.CIRCLE and "circle_points" in entry
                             ):
                                 self._create_dashed_line_from_points(
-                                    entry["circle_points"], dash_length, gap_length
+                                    entry["circle_points"], dash_length, gap_length, width
                                 )
                             elif (
                                 mode == DrawingModes.RECTANGLE
                                 and "rect_bounds" in entry
                             ):
                                 self._create_dashed_rectangle(
-                                    entry["rect_bounds"], dash_length, gap_length
+                                    entry["rect_bounds"], dash_length, gap_length, width
                                 )
                             elif mode == DrawingModes.TRIANGLE and "points" in entry:
                                 self._create_dashed_line_from_points(
-                                    entry["points"], dash_length, gap_length
+                                    entry["points"], dash_length, gap_length, width
                                 )
                         else:
                             # Draw solid shapes
