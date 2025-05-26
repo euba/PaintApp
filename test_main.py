@@ -46,8 +46,8 @@ def test_canvas_class():
     assert hasattr(canvas, 'line_width')
     assert hasattr(canvas, 'has_drawings')
     
-    # Test default line width (now "Normal" which is 4)
-    assert canvas.line_width == 4
+    # Test default line width (now "Normal" which is 6)
+    assert canvas.line_width == 6
 
 def test_line_width_setting():
     """Test line width setting functionality."""
@@ -55,15 +55,15 @@ def test_line_width_setting():
     
     canvas = MyCanvas()
     
-    # Test different line widths (updated values after removing original Thin)
+    # Test different line widths (updated values)
     canvas.set_line_width('Thin')
-    assert canvas.line_width == 2  # Previously Normal
+    assert canvas.line_width == 3  # Current Thin value
     
     canvas.set_line_width('Normal')
-    assert canvas.line_width == 4  # Previously Thick
+    assert canvas.line_width == 6  # Current Normal value
     
     canvas.set_line_width('Thick')
-    assert canvas.line_width == 8  # Previously Extra Thick
+    assert canvas.line_width == 12  # Current Thick value
 
 def test_color_constants():
     """Test that color constants are properly defined."""
@@ -196,7 +196,7 @@ def test_canvas_drawing_scaling():
     canvas.drawing_history.append({
         "type": "line_complete",
         "color": (0, 0, 0, 1),
-        "width": 4,
+        "width": 6,  # Use current default width
         "points": [100, 100, 200, 200]
     })
     
@@ -214,7 +214,7 @@ def test_canvas_drawing_scaling():
         assert abs(actual - expected) < 0.1  # Allow for floating point precision
     
     # Check that line width was scaled
-    assert abs(canvas.drawing_history[0]['width'] - 6.0) < 0.1  # 4 * 1.5 (average of 2.0 and 2.0)
+    assert abs(canvas.drawing_history[0]['width'] - 12.0) < 0.1  # 6 * 2.0 (average of 2.0 and 2.0)
 
 
 def test_drawing_modes():
@@ -331,6 +331,137 @@ def test_line_width_button_symbols():
     thick_btn = LineWidthButton(width_name="Thick", width_value=8)
     assert thick_btn.get_width_name() == "Thick"
     assert thick_btn.text == "#"  # Hash symbol (thick)
+
+def test_rounded_edges_export():
+    """Test that exported shapes have rounded edges consistent with drawing."""
+    from paintapp.core.canvas import MyCanvas
+    from paintapp.utils.constants import DrawingModes, LineStyles
+    
+    canvas = MyCanvas()
+    canvas.size = (400, 300)
+    
+    # Test 1: Rectangle with thick line width
+    canvas.set_drawing_mode(DrawingModes.RECTANGLE)
+    canvas.set_line_style(LineStyles.SOLID)
+    canvas.set_line_width('Thick')  # width = 12
+    canvas.set_color((1, 0, 0, 1))  # Red
+    
+    # Add rectangle to drawing history
+    rect_bounds = (50, 50, 150, 100)  # x, y, width, height
+    canvas.drawing_history.append({
+        "type": "shape_complete",
+        "drawing_mode": DrawingModes.RECTANGLE,
+        "color": (1, 0, 0, 1),
+        "width": 12,
+        "style": LineStyles.SOLID,
+        "rect_bounds": rect_bounds
+    })
+    
+    # Test 2: Triangle with normal line width
+    canvas.set_drawing_mode(DrawingModes.TRIANGLE)
+    canvas.set_line_width('Normal')  # width = 6
+    canvas.set_color((0, 1, 0, 1))  # Green
+    
+    # Add triangle to drawing history
+    triangle_points = [200, 50, 250, 150, 150, 150, 200, 50]  # Triangle points
+    canvas.drawing_history.append({
+        "type": "shape_complete",
+        "drawing_mode": DrawingModes.TRIANGLE,
+        "color": (0, 1, 0, 1),
+        "width": 6,
+        "style": LineStyles.SOLID,
+        "points": triangle_points
+    })
+    
+    # Export the canvas
+    export_filename = "test_rounded_edges_output.png"
+    success = canvas.export_to_png(export_filename, scale_factor=2)
+    
+    # Verify export was successful
+    assert success, "Export should succeed"
+    
+    # Verify the file was created
+    assert os.path.exists(export_filename), "Export file should be created"
+    
+    # Clean up
+    if os.path.exists(export_filename):
+        os.remove(export_filename)
+
+
+def test_rounded_edges_consistency():
+    """Test that all line drawing methods use consistent rounded edge settings."""
+    from paintapp.core.canvas import MyCanvas
+    from paintapp.utils.constants import DrawingModes, LineStyles
+    
+    canvas = MyCanvas()
+    canvas.size = (300, 200)
+    
+    # Test different line types with various widths
+    test_cases = [
+        (DrawingModes.LINE, LineStyles.SOLID, 'Thin'),
+        (DrawingModes.STRAIGHT_LINE, LineStyles.SOLID, 'Thick'),
+        (DrawingModes.RECTANGLE, LineStyles.SOLID, 'Normal'),
+        (DrawingModes.TRIANGLE, LineStyles.DASHED, 'Thick'),
+    ]
+    
+    for mode, style, width in test_cases:
+        canvas.set_drawing_mode(mode)
+        canvas.set_line_style(style)
+        canvas.set_line_width(width)
+        canvas.set_color((0.5, 0.5, 0.5, 1))
+        
+        # Add appropriate drawing to history based on mode
+        if mode == DrawingModes.LINE:
+            canvas.drawing_history.append({
+                "type": "line_complete",
+                "drawing_mode": mode,
+                "color": (0.5, 0.5, 0.5, 1),
+                "width": canvas.line_width,
+                "style": style,
+                "points": [10, 10, 50, 50, 90, 30]  # Free-drawn line
+            })
+        elif mode == DrawingModes.STRAIGHT_LINE:
+            canvas.drawing_history.append({
+                "type": "shape_complete",
+                "drawing_mode": mode,
+                "color": (0.5, 0.5, 0.5, 1),
+                "width": canvas.line_width,
+                "style": style,
+                "points": [100, 20, 150, 80]  # Straight line
+            })
+        elif mode == DrawingModes.RECTANGLE:
+            canvas.drawing_history.append({
+                "type": "shape_complete",
+                "drawing_mode": mode,
+                "color": (0.5, 0.5, 0.5, 1),
+                "width": canvas.line_width,
+                "style": style,
+                "rect_bounds": (160, 30, 60, 40)
+            })
+        elif mode == DrawingModes.TRIANGLE:
+            canvas.drawing_history.append({
+                "type": "shape_complete",
+                "drawing_mode": mode,
+                "color": (0.5, 0.5, 0.5, 1),
+                "width": canvas.line_width,
+                "style": style,
+                "points": [240, 20, 280, 80, 200, 80, 240, 20]
+            })
+    
+    # Export the comprehensive test
+    export_filename = "test_rounded_edges_comprehensive.png"
+    success = canvas.export_to_png(export_filename, scale_factor=1)
+    
+    # Verify export was successful
+    assert success, "Comprehensive export should succeed"
+    
+    # Verify the file was created
+    assert os.path.exists(export_filename), "Comprehensive export file should be created"
+    
+    # Clean up
+    if os.path.exists(export_filename):
+        os.remove(export_filename)
+
 
 if __name__ == '__main__':
     pytest.main([__file__]) 

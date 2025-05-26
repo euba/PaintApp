@@ -45,7 +45,8 @@ build = [
 dev = [
     "black",
     "flake8",
-    "pytest",
+    "pytest>=8.0.0",
+    "iniconfig>=2.0.0",
 ]
 
 [project.scripts]
@@ -70,4 +71,19 @@ target-version = ['py39']
 
 [tool.flake8]
 max-line-length = 88
-extend-ignore = ["E203", "W503"] 
+extend-ignore = ["E203", "W503"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]

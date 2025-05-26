@@ -46,27 +46,27 @@ class ColorButton(RadioButton):
             **kwargs: Additional keyword arguments for the parent class
         """
         super().__init__(**kwargs)
-        
+
         # Remove default button styling
-        self.background_normal = ''
-        self.background_down = ''
+        self.background_normal = ""
+        self.background_down = ""
         self.background_color = (0, 0, 0, 0)  # Transparent
-        self.text = ''  # No text on color buttons
-        
+        self.text = ""  # No text on color buttons
+
         # Set the color value if provided
         if color:
             self.color_value = list(color)
-        
+
         # Initialize graphics
         self.color_rect = None
         self.border_color = None
         self.border_line = None
-        
+
         # Bind to events
         self.bind(size=self._update_graphics)
         self.bind(pos=self._update_graphics)
         self.bind(state=self._update_graphics)
-        
+
         # Schedule initial graphics setup
         Clock.schedule_once(self._setup_graphics, 0)
 
@@ -76,33 +76,35 @@ class ColorButton(RadioButton):
             # Color rectangle
             self.color_instruction = Color(*self.color_value)
             self.color_rect = Rectangle(pos=self.pos, size=self.size)
-            
+
             # Border - thinner lines
-            border_color = (1, 0, 0, 1) if self.state == 'down' else (0.3, 0.3, 0.3, 1)
+            border_color = (1, 0, 0, 1) if self.state == "down" else (0.3, 0.3, 0.3, 1)
             self.border_color = Color(*border_color)
-            border_width = 2 if self.state == 'down' else 1  # Reduced from 3/2 to 2/1
-            self.border_line = Line(rectangle=(*self.pos, *self.size), width=border_width)
+            border_width = 2 if self.state == "down" else 1  # Reduced from 3/2 to 2/1
+            self.border_line = Line(
+                rectangle=(*self.pos, *self.size), width=border_width
+            )
 
     def _update_graphics(self, *args):
         """Update the graphics when size, position, or state changes."""
         if self.color_rect and self.border_line:
             # Update color
             self.color_instruction.rgba = self.color_value
-            
+
             # Update rectangle position and size
             self.color_rect.pos = self.pos
             self.color_rect.size = self.size
-            
+
             # Update border - thinner lines
-            border_color = (1, 0, 0, 1) if self.state == 'down' else (0.3, 0.3, 0.3, 1)
+            border_color = (1, 0, 0, 1) if self.state == "down" else (0.3, 0.3, 0.3, 1)
             self.border_color.rgba = border_color
-            border_width = 2 if self.state == 'down' else 1  # Reduced from 3/2 to 2/1
+            border_width = 2 if self.state == "down" else 1  # Reduced from 3/2 to 2/1
             self.border_line.rectangle = (*self.pos, *self.size)
             self.border_line.width = border_width
 
     def on_color_value(self, instance, value):
         """Called when color_value property changes."""
-        if hasattr(self, 'color_instruction') and self.color_instruction:
+        if hasattr(self, "color_instruction") and self.color_instruction:
             self.color_instruction.rgba = value
 
     def get_color(self):
@@ -147,9 +149,9 @@ class LineWidthButton(RadioButton):
 
         # Set the button text to show line thickness using simple characters
         width_symbols = {
-            "Thin": "-",     # Simple dash (thin)
-            "Normal": "=",   # Equals sign (medium)
-            "Thick": "#",    # Hash symbol (thick)
+            "Thin": "-",  # Simple dash (thin)
+            "Normal": "=",  # Equals sign (medium)
+            "Thick": "#",  # Hash symbol (thick)
         }
         self.text = width_symbols.get(self.width_name, self.width_name)
 
@@ -181,12 +183,12 @@ class LineWidthButton(RadioButton):
         """
         self.width_name = width_name
         self.width_value = width_value
-        
+
         # Update button text with appropriate symbol
         width_symbols = {
-            "Thin": "-",     # Simple dash (thin)
-            "Normal": "=",   # Equals sign (medium)
-            "Thick": "#",    # Hash symbol (thick)
+            "Thin": "-",  # Simple dash (thin)
+            "Normal": "=",  # Equals sign (medium)
+            "Thick": "#",  # Hash symbol (thick)
         }
         self.text = width_symbols.get(width_name, width_name)
 

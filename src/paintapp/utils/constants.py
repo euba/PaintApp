@@ -43,9 +43,9 @@ class LineWidths:
     """Line width constants."""
 
     # Updated width constants - made thicker
-    THIN = 3      # Increased from 2
-    NORMAL = 6    # Increased from 4  
-    THICK = 12    # Increased from 8
+    THIN = 3  # Increased from 2
+    NORMAL = 6  # Increased from 4
+    THICK = 12  # Increased from 8
 
     @classmethod
     def get_width_map(cls):
@@ -64,15 +64,15 @@ class LineWidths:
 
 class LineStyles:
     """Line style constants."""
-    
+
     SOLID = "solid"
     DASHED = "dashed"
-    
+
     @classmethod
     def get_styles(cls):
         """Get all available line styles."""
         return [cls.SOLID, cls.DASHED]
-    
+
     @classmethod
     def get_style_labels(cls):
         """Get human-readable labels for line styles."""
@@ -96,7 +96,14 @@ class DrawingModes:
     @classmethod
     def get_modes(cls):
         """Get all available drawing modes."""
-        return [cls.LINE, cls.STRAIGHT_LINE, cls.CIRCLE, cls.TRIANGLE, cls.RECTANGLE, cls.TEXT]
+        return [
+            cls.LINE,
+            cls.STRAIGHT_LINE,
+            cls.CIRCLE,
+            cls.TRIANGLE,
+            cls.RECTANGLE,
+            cls.TEXT,
+        ]
 
     @classmethod
     def get_mode_labels(cls):
@@ -104,7 +111,7 @@ class DrawingModes:
         return {
             cls.LINE: "Line",
             cls.STRAIGHT_LINE: "Straight Line",
-            cls.CIRCLE: "Circle", 
+            cls.CIRCLE: "Circle",
             cls.TRIANGLE: "Triangle",
             cls.RECTANGLE: "Rectangle",
             cls.TEXT: "Text",

@@ -28,7 +28,7 @@ class MainLayout(BoxLayout):
 
         # Create the main components
         self._setup_layout()
-        
+
         # Bind keyboard events
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
@@ -122,34 +122,34 @@ class MainLayout(BoxLayout):
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         """
         Handle keyboard key down events.
-        
+
         Args:
             keyboard: The keyboard instance
             keycode: Tuple of (key_code, key_string)
             text: The text representation of the key
             modifiers: List of modifier keys pressed
-        
+
         Returns:
             bool: True if the key was handled, False otherwise
         """
         key_code, key_string = keycode
-        
+
         # Check for CMD+Shift+Z (redo) or CMD+Y (redo) on macOS, Ctrl+Shift+Z or Ctrl+Y on other platforms
-        if ('meta' in modifiers or 'ctrl' in modifiers):
-            if key_string == 'z' and 'shift' in modifiers:
+        if "meta" in modifiers or "ctrl" in modifiers:
+            if key_string == "z" and "shift" in modifiers:
                 # CMD+Shift+Z or Ctrl+Shift+Z for redo
-                if self.canvas_widget and hasattr(self.canvas_widget, 'redo'):
+                if self.canvas_widget and hasattr(self.canvas_widget, "redo"):
                     self.canvas_widget.redo()
                     return True
-            elif key_string == 'y':
+            elif key_string == "y":
                 # CMD+Y or Ctrl+Y for redo (alternative shortcut)
-                if self.canvas_widget and hasattr(self.canvas_widget, 'redo'):
+                if self.canvas_widget and hasattr(self.canvas_widget, "redo"):
                     self.canvas_widget.redo()
                     return True
-            elif key_string == 'z':
+            elif key_string == "z":
                 # CMD+Z or Ctrl+Z for undo
-                if self.canvas_widget and hasattr(self.canvas_widget, 'undo'):
+                if self.canvas_widget and hasattr(self.canvas_widget, "undo"):
                     self.canvas_widget.undo()
                     return True
-        
+
         return False
